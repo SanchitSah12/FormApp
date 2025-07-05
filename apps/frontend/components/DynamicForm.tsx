@@ -85,6 +85,31 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         }));
     };
 
+    const focusNextField = (currentFieldId: string) => {
+        // Get current template structure
+        const currentHasSection = template.sections && template.sections.length > 0;
+        const currentVisibleSections = currentHasSection ? template.sections?.filter(shouldShowSection) || [] : [];
+        const currentCurrentSection = currentHasSection ? currentVisibleSections[currentSectionIndex] : null;
+
+        const allFields = currentHasSection
+            ? (currentCurrentSection ? currentCurrentSection.fields : [])
+            : (template.fields || []);
+
+        const visibleFields = allFields.filter(shouldShowField);
+        const currentIndex = visibleFields.findIndex(field => field.id === currentFieldId);
+
+        if (currentIndex >= 0 && currentIndex < visibleFields.length - 1) {
+            const nextField = visibleFields[currentIndex + 1];
+            // Use setTimeout to ensure the DOM is ready
+            setTimeout(() => {
+                const nextElement = document.getElementById(nextField.id);
+                if (nextElement) {
+                    nextElement.focus();
+                }
+            }, 50);
+        }
+    };
+
     const handleFileUpload = async (fieldId: string, file: File) => {
         try {
             const formData = new FormData();
@@ -195,17 +220,25 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                 case 'phone':
                     return (
                         <Input
+                            id={field.id}
                             type={field.type}
                             value={value}
                             onChange={(e) => handleFieldChange(field.id, e.target.value)}
                             placeholder={field.placeholder}
                             required={field.required}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    focusNextField(field.id);
+                                }
+                            }}
                         />
                     );
 
                 case 'number':
                     return (
                         <Input
+                            id={field.id}
                             type="number"
                             value={value}
                             onChange={(e) => handleFieldChange(field.id, parseFloat(e.target.value) || '')}
@@ -213,20 +246,32 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                             required={field.required}
                             min={field.validation?.min}
                             max={field.validation?.max}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    focusNextField(field.id);
+                                }
+                            }}
                         />
                     );
 
                 case 'textarea':
                     return (
                         <Textarea
+                            id={field.id}
                             value={value}
                             onChange={(e) => handleFieldChange(field.id, e.target.value)}
                             placeholder={field.placeholder}
                             required={field.required}
                             onKeyDown={(e) => {
-                                // Allow Enter key to work in textarea
-                                if (e.key === 'Enter') {
+                                // Allow Enter key to work in textarea for new lines
+                                if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+                                    // Allow normal Enter for new line in textarea
                                     e.stopPropagation();
+                                } else if (e.key === 'Enter' && e.ctrlKey) {
+                                    // Ctrl+Enter moves to next field
+                                    e.preventDefault();
+                                    focusNextField(field.id);
                                 }
                             }}
                             rows={4}
@@ -235,8 +280,29 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
                 case 'select':
                     return (
-                        <Select value={value} onValueChange={(val) => handleFieldChange(field.id, val)}>
-                            <SelectTrigger>
+                        <Select
+                            value={value}
+                            onValueChange={(val) => {
+                                handleFieldChange(field.id, val);
+                                // Move to next field after selection
+                                setTimeout(() => focusNextField(field.id), 100);
+                            }}
+                        >
+                            <SelectTrigger
+                                id={field.id}
+                                onKeyDown={(e) => {
+                                    // Handle Enter key to move to next field
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        focusNextField(field.id);
+                                    }
+                                    // Handle Tab key normally
+                                    if (e.key === 'Tab') {
+                                        // Let default tab behavior work
+                                        return;
+                                    }
+                                }}
+                            >
                                 <SelectValue placeholder={field.placeholder || 'Select an option'} />
                             </SelectTrigger>
                             <SelectContent>
@@ -297,10 +363,17 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                 case 'date':
                     return (
                         <Input
+                            id={field.id}
                             type="date"
                             value={value}
                             onChange={(e) => handleFieldChange(field.id, e.target.value)}
                             required={field.required}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    focusNextField(field.id);
+                                }
+                            }}
                         />
                     );
 
