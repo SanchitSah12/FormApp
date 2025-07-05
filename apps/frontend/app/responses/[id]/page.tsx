@@ -266,7 +266,7 @@ export default function ResponsePage({ params }: ResponsePageProps) {
                         {/* Response Data */}
                         {template && (
                             <div className="space-y-6">
-                                {template.sections.map((section, sectionIndex) => (
+                                {template?.sections?.map((section, sectionIndex) => (
                                     <Card key={section.id}>
                                         <CardHeader>
                                             <CardTitle>{section.title}</CardTitle>
