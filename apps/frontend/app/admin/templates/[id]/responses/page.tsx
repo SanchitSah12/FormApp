@@ -164,7 +164,7 @@ export default function TemplateResponsesPage({
       case "reviewed":
         return "outline";
       case "approved":
-        return "success";
+        return "default"; // Changed from "success" to "default"
       case "rejected":
         return "destructive";
       default:
