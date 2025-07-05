@@ -85,9 +85,10 @@ const templateSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['construction', 'payroll', 'general']
+    enum: ['construction', 'payroll', 'general', 'Business Setup']
   },
   sections: [sectionSchema],
+  fields: [fieldSchema], // Support for flat field structure
   isActive: {
     type: Boolean,
     default: true
