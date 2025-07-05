@@ -218,7 +218,7 @@ export default function ResponsePage({ params }: ResponsePageProps) {
                                             <div className="text-sm font-medium">Submitted by</div>
                                             <div className="text-sm text-muted-foreground">
                                                 {typeof response.userId === 'object'
-                                                    ? `${response.userId.firstName} ${response.userId.lastName}`
+                                                    ? `${response?.userId?.firstName} ${response?.userId?.lastName}`
                                                     : 'Unknown User'}
                                             </div>
                                         </div>
