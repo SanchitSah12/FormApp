@@ -1,431 +1,326 @@
-const sampleConstructionPayrollTemplate = {
-  name: "Construction Payroll Onboarding",
-  description: "Complete onboarding template for construction payroll and time tracking customers",
-  category: "construction",
-  sections: [
+module.exports = {
+  name: "Company Onboarding Form Main",
+  description: "Comprehensive company information collection form for new business setup and payroll onboarding",
+  category: "Business Setup",
+  isActive: true,
+  fields: [
     {
-      id: "company-info",
-      title: "Company Information",
-      description: "Basic company details and contact information",
-      order: 1,
-      fields: [
-        {
-          id: "company-name",
-          type: "text",
-          label: "Company Name",
-          placeholder: "Enter your company name",
-          required: true,
-          order: 1
-        },
-        {
-          id: "company-address",
-          type: "textarea",
-          label: "Company Address",
-          placeholder: "Enter complete company address",
-          required: true,
-          order: 2
-        },
-        {
-          id: "company-phone",
-          type: "phone",
-          label: "Company Phone",
-          placeholder: "(555) 123-4567",
-          required: true,
-          order: 3
-        },
-        {
-          id: "company-email",
-          type: "email",
-          label: "Company Email",
-          placeholder: "contact@company.com",
-          required: true,
-          order: 4
-        },
-        {
-          id: "business-type",
-          type: "select",
-          label: "Business Type",
-          required: true,
-          order: 5,
-          options: [
-            { value: "general-contractor", label: "General Contractor" },
-            { value: "subcontractor", label: "Subcontractor" },
-            { value: "specialty-contractor", label: "Specialty Contractor" },
-            { value: "other", label: "Other" }
-          ]
-        },
-        {
-          id: "years-in-business",
-          type: "number",
-          label: "Years in Business",
-          required: true,
-          order: 6,
-          validation: {
-            min: 0,
-            max: 100
-          }
-        },
-        {
-          id: "number-of-employees",
-          type: "select",
-          label: "Number of Employees",
-          required: true,
-          order: 7,
-          options: [
-            { value: "1-10", label: "1-10" },
-            { value: "11-50", label: "11-50" },
-            { value: "51-100", label: "51-100" },
-            { value: "101-500", label: "101-500" },
-            { value: "500+", label: "500+" }
-          ]
-        }
+      id: "company_name",
+      type: "text",
+      label: "Company Name",
+      placeholder: "Enter your company name",
+      required: true,
+      validation: {
+        minLength: 2,
+        maxLength: 100
+      }
+    },
+    {
+      id: "company_legal_name",
+      type: "text",
+      label: "Company Legal Name",
+      placeholder: "Enter the official legal name",
+      required: true,
+      helpText: "The company's official name that appears on legal and tax forms.",
+      validation: {
+        minLength: 2,
+        maxLength: 100
+      }
+    },
+    {
+      id: "company_trade_name",
+      type: "text",
+      label: "Company Trade Name (DBA)",
+      placeholder: "Enter trade name or DBA",
+      required: true,
+      helpText: "Doing Business As name if different from legal name",
+      validation: {
+        minLength: 2,
+        maxLength: 100
+      }
+    },
+    {
+      id: "business_type",
+      type: "select",
+      label: "Business Type",
+      required: true,
+      options: [
+        { value: "llc", label: "LLC" },
+        { value: "corporation", label: "Corporation" },
+        { value: "partnership", label: "Partnership" },
+        { value: "sole_proprietorship", label: "Sole Proprietorship" },
+        { value: "s_corp", label: "S-Corporation" },
+        { value: "c_corp", label: "C-Corporation" },
+        { value: "non_profit", label: "Non-Profit" },
+        { value: "other", label: "Other" }
       ]
     },
     {
-      id: "payroll-setup",
-      title: "Payroll Setup",
-      description: "Configure payroll settings and preferences",
-      order: 2,
-      fields: [
-        {
-          id: "payroll-frequency",
-          type: "select",
-          label: "Payroll Frequency",
-          required: true,
-          order: 1,
-          options: [
-            { value: "weekly", label: "Weekly" },
-            { value: "bi-weekly", label: "Bi-weekly" },
-            { value: "semi-monthly", label: "Semi-monthly" },
-            { value: "monthly", label: "Monthly" }
-          ]
-        },
-        {
-          id: "pay-period-start",
-          type: "select",
-          label: "Pay Period Start Day",
-          required: true,
-          order: 2,
-          conditionalLogic: {
-            dependsOn: "payroll-frequency",
-            condition: "not_equals",
-            value: "monthly"
-          },
-          options: [
-            { value: "sunday", label: "Sunday" },
-            { value: "monday", label: "Monday" },
-            { value: "tuesday", label: "Tuesday" },
-            { value: "wednesday", label: "Wednesday" },
-            { value: "thursday", label: "Thursday" },
-            { value: "friday", label: "Friday" },
-            { value: "saturday", label: "Saturday" }
-          ]
-        },
-        {
-          id: "overtime-calculation",
-          type: "select",
-          label: "Overtime Calculation Method",
-          required: true,
-          order: 3,
-          options: [
-            { value: "daily", label: "Daily (8+ hours)" },
-            { value: "weekly", label: "Weekly (40+ hours)" },
-            { value: "both", label: "Both Daily and Weekly" }
-          ]
-        },
-        {
-          id: "prevailing-wage",
-          type: "checkbox",
-          label: "Subject to Prevailing Wage Requirements",
-          order: 4
-        },
-        {
-          id: "prevailing-wage-details",
-          type: "textarea",
-          label: "Prevailing Wage Details",
-          placeholder: "Describe prevailing wage requirements and applicable projects",
-          order: 5,
-          conditionalLogic: {
-            dependsOn: "prevailing-wage",
-            condition: "equals",
-            value: true
-          }
-        },
-        {
-          id: "union-work",
-          type: "checkbox",
-          label: "Performs Union Work",
-          order: 6
-        },
-        {
-          id: "union-details",
-          type: "textarea",
-          label: "Union Details",
-          placeholder: "List applicable unions and agreements",
-          order: 7,
-          conditionalLogic: {
-            dependsOn: "union-work",
-            condition: "equals",
-            value: true
-          }
-        }
+      id: "company_phone",
+      type: "text",
+      label: "Company Phone Number",
+      placeholder: "(555) 123-4567",
+      required: true,
+      helpText: "Company office number",
+      validation: {
+        pattern: "^[\\+]?[1-9]?[0-9]{7,15}$"
+      }
+    },
+    {
+      id: "company_email",
+      type: "email",
+      label: "Company Email",
+      placeholder: "info@company.com",
+      required: true,
+      helpText: "If the company has a general email your company uses (ex. info@company.com), please use this. If not, please use an administrator email.",
+      validation: {
+        pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+      }
+    },
+    {
+      id: "company_specialty",
+      type: "text",
+      label: "Company Trade/Specialty",
+      placeholder: "e.g., Construction, Plumbing, Electrical",
+      required: true,
+      helpText: "What type of work does your company specialize in?",
+      validation: {
+        minLength: 2,
+        maxLength: 100
+      }
+    },
+    {
+      id: "company_legal_address",
+      type: "textarea",
+      label: "Company Legal Address",
+      placeholder: "123 Main Street, City, State, ZIP Code",
+      required: true,
+      helpText: "The company's official registered address, used for legal and tax purposes.",
+      validation: {
+        minLength: 10,
+        maxLength: 500
+      }
+    },
+    {
+      id: "company_workplaces",
+      type: "textarea",
+      label: "Company Workplaces",
+      placeholder: "5273 Prospect Road #292, San Jose, CA 95129\n456 Business Ave, Another City, CA 94102",
+      required: false,
+      helpText: "If you have multiple workplaces, please list all addresses where the company is performing business. This will help us set up the correct state tax accounts in Lumber.\n\nThe format should follow: Street #, City, State, Zip Code\nFor example: 5273 Prospect Road #292, San Jose, CA 95129",
+      validation: {
+        maxLength: 1000
+      }
+    },
+    {
+      id: "signatory_name",
+      type: "text",
+      label: "Company Signatory Name (First and Last)",
+      placeholder: "John Smith",
+      required: true,
+      helpText: "The admin who will sign tax authorization forms.",
+      validation: {
+        minLength: 2,
+        maxLength: 100
+      }
+    },
+    {
+      id: "signatory_email",
+      type: "email",
+      label: "Company Signatory Email",
+      placeholder: "john.smith@company.com",
+      required: true,
+      validation: {
+        pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+      }
+    },
+    {
+      id: "signatory_phone",
+      type: "text",
+      label: "Company Signatory Phone Number",
+      placeholder: "(555) 123-4567",
+      required: true,
+      validation: {
+        pattern: "^[\\+]?[1-9]?[0-9]{7,15}$"
+      }
+    },
+    {
+      id: "signatory_address",
+      type: "textarea",
+      label: "Company Signatory Address",
+      placeholder: "5273 Prospect Road #292, San Jose, CA 95129",
+      required: true,
+      helpText: "The format should follow: Street #, City, State, Zip Code\nFor example: 5273 Prospect Road #292, San Jose, CA 95129",
+      validation: {
+        minLength: 10,
+        maxLength: 500
+      }
+    },
+    {
+      id: "admin_name",
+      type: "text",
+      label: "Admin Name (First and Last)",
+      placeholder: "Jane Doe",
+      required: true,
+      validation: {
+        minLength: 2,
+        maxLength: 100
+      }
+    },
+    {
+      id: "admin_email",
+      type: "email",
+      label: "Admin Company Email",
+      placeholder: "jane.doe@company.com",
+      required: true,
+      validation: {
+        pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+      }
+    },
+    {
+      id: "additional_admin_name_1",
+      type: "text",
+      label: "Additional Admin Name (First and Last)",
+      placeholder: "Mike Johnson",
+      required: false,
+      helpText: "Optional",
+      validation: {
+        maxLength: 100
+      }
+    },
+    {
+      id: "additional_admin_email_1",
+      type: "email",
+      label: "Additional Admin Company Email",
+      placeholder: "mike.johnson@company.com",
+      required: false,
+      helpText: "Optional",
+      validation: {
+        pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+      }
+    },
+    {
+      id: "additional_admin_name_2",
+      type: "text",
+      label: "Additional Admin Name (First and Last)",
+      placeholder: "Sarah Wilson",
+      required: false,
+      helpText: "Optional",
+      validation: {
+        maxLength: 100
+      }
+    },
+    {
+      id: "additional_admin_email_2",
+      type: "email",
+      label: "Additional Admin Company Email",
+      placeholder: "sarah.wilson@company.com",
+      required: false,
+      helpText: "Optional",
+      validation: {
+        pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+      }
+    },
+    {
+      id: "company_timezone",
+      type: "select",
+      label: "Company Time Zone",
+      required: true,
+      helpText: "Please select the time zone(s) your main admins are located in",
+      options: [
+        { value: "pst", label: "Pacific (PST)" },
+        { value: "mst", label: "Mountain (MST)" },
+        { value: "cst", label: "Central (CST)" },
+        { value: "est", label: "Eastern (EST)" },
+        { value: "other", label: "Other" }
       ]
     },
     {
-      id: "time-tracking",
-      title: "Time Tracking Setup",
-      description: "Configure time tracking methods and requirements",
-      order: 3,
-      fields: [
-        {
-          id: "time-tracking-method",
-          type: "select",
-          label: "Primary Time Tracking Method",
-          required: true,
-          order: 1,
-          options: [
-            { value: "manual-timesheets", label: "Manual Timesheets" },
-            { value: "mobile-app", label: "Mobile App" },
-            { value: "biometric-clock", label: "Biometric Time Clock" },
-            { value: "badge-system", label: "Badge/Card System" },
-            { value: "gps-tracking", label: "GPS Tracking" }
-          ]
-        },
-        {
-          id: "job-costing",
-          type: "checkbox",
-          label: "Requires Job Costing",
-          order: 2
-        },
-        {
-          id: "job-costing-levels",
-          type: "multiselect",
-          label: "Job Costing Levels",
-          order: 3,
-          conditionalLogic: {
-            dependsOn: "job-costing",
-            condition: "equals",
-            value: true
-          },
-          options: [
-            { value: "project", label: "Project" },
-            { value: "phase", label: "Phase" },
-            { value: "cost-code", label: "Cost Code" },
-            { value: "task", label: "Task" }
-          ]
-        },
-        {
-          id: "break-tracking",
-          type: "checkbox",
-          label: "Track Breaks and Lunch",
-          order: 4
-        },
-        {
-          id: "location-tracking",
-          type: "checkbox",
-          label: "Require Location Tracking",
-          order: 5
-        },
-        {
-          id: "photo-verification",
-          type: "checkbox",
-          label: "Require Photo Verification for Clock In/Out",
-          order: 6
-        }
-      ]
+      id: "timezone_other",
+      type: "text",
+      label: "Other Time Zone",
+      placeholder: "Please specify",
+      required: false,
+      helpText: "If you selected 'Other' above, please specify the time zone",
+      validation: {
+        maxLength: 50
+      }
     },
     {
-      id: "erp-integration",
-      title: "ERP Integration",
-      description: "Configure integration with existing ERP systems",
-      order: 4,
-      fields: [
-        {
-          id: "has-erp",
-          type: "radio",
-          label: "Do you currently use an ERP system?",
-          required: true,
-          order: 1,
-          options: [
-            { value: "yes", label: "Yes" },
-            { value: "no", label: "No" },
-            { value: "planning", label: "Planning to implement" }
-          ]
-        },
-        {
-          id: "erp-system",
-          type: "select",
-          label: "ERP System",
-          order: 2,
-          conditionalLogic: {
-            dependsOn: "has-erp",
-            condition: "equals",
-            value: "yes"
-          },
-          options: [
-            { value: "sage-300", label: "Sage 300" },
-            { value: "sage-100", label: "Sage 100" },
-            { value: "quickbooks", label: "QuickBooks" },
-            { value: "foundation", label: "Foundation" },
-            { value: "procore", label: "Procore" },
-            { value: "buildertrend", label: "Buildertrend" },
-            { value: "other", label: "Other" }
-          ]
-        },
-        {
-          id: "erp-other",
-          type: "text",
-          label: "Other ERP System",
-          placeholder: "Specify your ERP system",
-          order: 3,
-          conditionalLogic: {
-            dependsOn: "erp-system",
-            condition: "equals",
-            value: "other"
-          }
-        },
-        {
-          id: "integration-requirements",
-          type: "multiselect",
-          label: "Integration Requirements",
-          order: 4,
-          conditionalLogic: {
-            dependsOn: "has-erp",
-            condition: "equals",
-            value: "yes"
-          },
-          options: [
-            { value: "employee-sync", label: "Employee Data Sync" },
-            { value: "payroll-export", label: "Payroll Data Export" },
-            { value: "job-sync", label: "Job/Project Sync" },
-            { value: "cost-code-sync", label: "Cost Code Sync" },
-            { value: "real-time", label: "Real-time Integration" }
-          ]
-        },
-        {
-          id: "integration-files",
-          type: "file",
-          label: "ERP System Documentation",
-          order: 5,
-          conditionalLogic: {
-            dependsOn: "has-erp",
-            condition: "equals",
-            value: "yes"
-          },
-          helpText: "Upload any relevant ERP system documentation or integration guides"
-        }
-      ]
+      id: "avg_hourly_employees",
+      type: "number",
+      label: "Average Number of Hourly Employees",
+      placeholder: "25",
+      required: true,
+      validation: {
+        min: 0,
+        max: 10000
+      }
     },
     {
-      id: "compliance",
-      title: "Compliance & Reporting",
-      description: "Configure compliance requirements and reporting needs",
-      order: 5,
-      fields: [
-        {
-          id: "states-of-operation",
-          type: "multiselect",
-          label: "States of Operation",
-          required: true,
-          order: 1,
-          options: [
-            { value: "AL", label: "Alabama" },
-            { value: "AK", label: "Alaska" },
-            { value: "AZ", label: "Arizona" },
-            { value: "AR", label: "Arkansas" },
-            { value: "CA", label: "California" },
-            { value: "CO", label: "Colorado" },
-            { value: "CT", label: "Connecticut" },
-            { value: "DE", label: "Delaware" },
-            { value: "FL", label: "Florida" },
-            { value: "GA", label: "Georgia" },
-            // Add more states as needed
-          ]
-        },
-        {
-          id: "workers-comp",
-          type: "checkbox",
-          label: "Workers' Compensation Insurance Required",
-          order: 2
-        },
-        {
-          id: "workers-comp-carrier",
-          type: "text",
-          label: "Workers' Compensation Carrier",
-          order: 3,
-          conditionalLogic: {
-            dependsOn: "workers-comp",
-            condition: "equals",
-            value: true
-          }
-        },
-        {
-          id: "certified-payroll",
-          type: "checkbox",
-          label: "Certified Payroll Reporting Required",
-          order: 4
-        },
-        {
-          id: "aca-reporting",
-          type: "checkbox",
-          label: "ACA Reporting Required",
-          order: 5
-        },
-        {
-          id: "state-reporting",
-          type: "multiselect",
-          label: "State-Specific Reporting Requirements",
-          order: 6,
-          options: [
-            { value: "new-hire", label: "New Hire Reporting" },
-            { value: "wage-hour", label: "Wage & Hour Reporting" },
-            { value: "safety", label: "Safety Reporting" },
-            { value: "apprenticeship", label: "Apprenticeship Reporting" }
-          ]
-        }
-      ]
+      id: "avg_salaried_employees",
+      type: "number",
+      label: "Average Number of Salaried Employees",
+      placeholder: "5",
+      required: true,
+      validation: {
+        min: 0,
+        max: 10000
+      }
     },
     {
-      id: "additional-info",
-      title: "Additional Information",
-      description: "Any additional requirements or special considerations",
-      order: 6,
-      fields: [
-        {
-          id: "special-requirements",
-          type: "textarea",
-          label: "Special Requirements or Considerations",
-          placeholder: "Describe any special requirements, custom workflows, or unique business needs",
-          order: 1
-        },
-        {
-          id: "go-live-date",
-          type: "date",
-          label: "Desired Go-Live Date",
-          order: 2
-        },
-        {
-          id: "training-needs",
-          type: "multiselect",
-          label: "Training Needs",
-          order: 3,
-          options: [
-            { value: "admin-training", label: "Administrator Training" },
-            { value: "supervisor-training", label: "Supervisor Training" },
-            { value: "employee-training", label: "Employee Training" },
-            { value: "ongoing-support", label: "Ongoing Support" }
-          ]
-        },
-        {
-          id: "additional-documents",
-          type: "file",
-          label: "Additional Documents",
-          order: 4,
-          helpText: "Upload any additional documents, contracts, or reference materials"
-        }
-      ]
+      id: "current_time_tracking",
+      type: "text",
+      label: "Current Time Tracking Solution",
+      placeholder: "e.g., Excel, QuickBooks Time, TSheets",
+      required: true,
+      validation: {
+        minLength: 2,
+        maxLength: 100
+      }
+    },
+    {
+      id: "current_payroll",
+      type: "text",
+      label: "Current Payroll Solution",
+      placeholder: "e.g., ADP, Paychex, QuickBooks Payroll",
+      required: true,
+      validation: {
+        minLength: 2,
+        maxLength: 100
+      }
+    },
+    {
+      id: "current_accounting_erp",
+      type: "text",
+      label: "Current Accounting/ERP Solution",
+      placeholder: "e.g., QuickBooks, Sage, NetSuite",
+      required: true,
+      validation: {
+        minLength: 2,
+        maxLength: 100
+      }
+    },
+    {
+      id: "new_erp_solution",
+      type: "text",
+      label: "New ERP Solution (if applicable)",
+      placeholder: "e.g., Sage 300, NetSuite, SAP",
+      required: false,
+      validation: {
+        maxLength: 100
+      }
+    },
+    {
+      id: "kickoff_call_notes",
+      type: "textarea",
+      label: "Is there anything specific you'd like to go over in our Kickoff Call?",
+      placeholder: "Please share any specific questions, concerns, or topics you'd like to discuss...",
+      required: false,
+      helpText: "Optional",
+      validation: {
+        maxLength: 1000
+      }
     }
   ]
-};
-
-module.exports = sampleConstructionPayrollTemplate; 
+}; 

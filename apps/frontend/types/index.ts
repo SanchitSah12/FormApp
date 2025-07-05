@@ -68,10 +68,11 @@ export interface Template {
     _id: string;
     name: string;
     description?: string;
-    category: 'construction' | 'payroll' | 'general';
-    sections: Section[];
+    category: 'construction' | 'payroll' | 'general' | 'Business Setup';
+    sections?: Section[];
+    fields?: Field[];
     isActive: boolean;
-    version: number;
+    version?: number;
     createdBy: string | User;
     updatedBy?: string | User;
     createdAt: Date;

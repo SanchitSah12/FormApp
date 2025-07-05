@@ -105,10 +105,16 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     };
 
     const calculateCompletionPercentage = (): number => {
-        const visibleSections = template.sections.filter(shouldShowSection);
-        const totalFields = visibleSections.reduce((total, section) => {
-            return total + section.fields.filter(shouldShowField).length;
-        }, 0);
+        let totalFields = 0;
+
+        if (template.sections && template.sections.length > 0) {
+            const visibleSections = template.sections.filter(shouldShowSection);
+            totalFields = visibleSections.reduce((total, section) => {
+                return total + section.fields.filter(shouldShowField).length;
+            }, 0);
+        } else if (template.fields) {
+            totalFields = template.fields.filter(shouldShowField).length;
+        }
 
         const completedFields = Object.keys(responses).filter(key => {
             const value = responses[key];
@@ -122,19 +128,20 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         setIsSaving(true);
         try {
             const completionPercentage = calculateCompletionPercentage();
+            const currentSectionId = template.sections?.[currentSectionIndex]?.id;
 
             if (existingResponse) {
                 await api.put(`/responses/${existingResponse._id}`, {
                     responses,
                     completionPercentage,
-                    currentSection: template.sections[currentSectionIndex]?.id,
+                    currentSection: currentSectionId,
                 });
             } else {
                 await api.post('/responses', {
                     templateId: template._id,
                     responses,
                     completionPercentage,
-                    currentSection: template.sections[currentSectionIndex]?.id,
+                    currentSection: currentSectionId,
                 });
             }
 
@@ -216,6 +223,13 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                             onChange={(e) => handleFieldChange(field.id, e.target.value)}
                             placeholder={field.placeholder}
                             required={field.required}
+                            onKeyDown={(e) => {
+                                // Allow Enter key to work in textarea
+                                if (e.key === 'Enter') {
+                                    e.stopPropagation();
+                                }
+                            }}
+                            rows={4}
                         />
                     );
 
@@ -333,11 +347,18 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         );
     };
 
-    const visibleSections = template.sections.filter(shouldShowSection);
-    const currentSection = visibleSections[currentSectionIndex];
+    // Handle both section-based and flat field-based templates
+    const hasSection = template.sections && template.sections.length > 0;
+    const visibleSections = hasSection ? template.sections?.filter(shouldShowSection) || [] : [];
+    const currentSection = hasSection ? visibleSections[currentSectionIndex] : null;
     const completionPercentage = calculateCompletionPercentage();
 
-    if (!currentSection) {
+    // For flat field templates, create a virtual section
+    const fieldsToRender = hasSection
+        ? (currentSection ? currentSection.fields : [])
+        : (template.fields || []);
+
+    if (hasSection && !currentSection) {
         return (
             <Alert>
                 <AlertDescription>
@@ -361,35 +382,42 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
             </Card>
 
             {/* Section Navigation */}
-            <div className="flex justify-center space-x-2">
-                {visibleSections.map((section, index) => (
-                    <Button
-                        key={section.id}
-                        variant={index === currentSectionIndex ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setCurrentSectionIndex(index)}
-                        className="min-w-[2rem]"
-                    >
-                        {index + 1}
-                    </Button>
-                ))}
-            </div>
+            {hasSection && (
+                <div className="flex justify-center space-x-2">
+                    {visibleSections.map((section, index) => (
+                        <Button
+                            key={section.id}
+                            variant={index === currentSectionIndex ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentSectionIndex(index)}
+                            className="min-w-[2rem]"
+                        >
+                            {index + 1}
+                        </Button>
+                    ))}
+                </div>
+            )}
 
             {/* Current Section */}
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center justify-between">
-                        <span>{currentSection.title}</span>
-                        <Badge variant="outline">
-                            Section {currentSectionIndex + 1} of {visibleSections.length}
-                        </Badge>
+                        <span>{hasSection && currentSection ? currentSection.title : template.name}</span>
+                        {hasSection && (
+                            <Badge variant="outline">
+                                Section {currentSectionIndex + 1} of {visibleSections.length}
+                            </Badge>
+                        )}
                     </CardTitle>
-                    {currentSection.description && (
+                    {hasSection && currentSection && currentSection.description && (
                         <CardDescription>{currentSection.description}</CardDescription>
+                    )}
+                    {!hasSection && template.description && (
+                        <CardDescription>{template.description}</CardDescription>
                     )}
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    {currentSection.fields.map(renderField)}
+                    {fieldsToRender.map(renderField)}
                 </CardContent>
             </Card>
 
