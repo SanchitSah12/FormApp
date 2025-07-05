@@ -15,9 +15,9 @@ const flattenResponseData = (responses, template) => {
   responses.forEach(response => {
     const row = {
       'Response ID': response._id,
-      'User Name': `${response.userId.firstName} ${response.userId.lastName}`,
-      'User Email': response.userId.email,
-      'Company Name': response.userId.companyName || '',
+      'User Name': response.userId ? `${response.userId.firstName} ${response.userId.lastName}` : 'Anonymous',
+      'User Email': response.userId ? response.userId.email : 'N/A',
+      'Company Name': response.userId ? (response.userId.companyName || '') : 'N/A',
       'Template Name': response.templateId.name,
       'Status': response.status,
       'Completion %': response.completionPercentage,
@@ -25,6 +25,13 @@ const flattenResponseData = (responses, template) => {
       'Created At': response.createdAt,
       'Updated At': response.updatedAt
     };
+
+    // Add submitter info for public submissions if available
+    if (!response.userId && response.submitterInfo) {
+      row['User Name'] = response.submitterInfo.name || 'Anonymous';
+      row['User Email'] = response.submitterInfo.email || 'N/A';
+      row['Company Name'] = response.submitterInfo.company || 'N/A';
+    }
 
     // Add dynamic fields from template
     if (template && template.sections) {
@@ -163,9 +170,9 @@ router.get('/excel', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // Export template structure as JSON
-router.get('/template/:id/json', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/template/:templateId/json', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const template = await Template.findById(req.params.id)
+    const template = await Template.findById(req.params.templateId)
       .populate('createdBy', 'firstName lastName email');
 
     if (!template) {

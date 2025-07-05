@@ -120,8 +120,7 @@ export default function TemplateResponsesPage({
       link.href = url;
       link.setAttribute(
         "download",
-        `${template?.name?.replace(/\s+/g, "_")}_responses.${
-          format === "csv" ? "csv" : "xlsx"
+        `${template?.name?.replace(/\s+/g, "_")}_responses.${format === "csv" ? "csv" : "xlsx"
         }`
       );
       document.body.appendChild(link);
@@ -130,8 +129,9 @@ export default function TemplateResponsesPage({
       window.URL.revokeObjectURL(url);
 
       toast.success(`Responses exported as ${format.toUpperCase()}`);
-    } catch (error) {
-      toast.error(`Failed to export responses as ${format.toUpperCase()}`);
+    } catch (error: any) {
+      console.log(error);
+      toast.error(error?.response?.data?.message || "No responses found");
     }
   };
 
@@ -347,11 +347,11 @@ export default function TemplateResponsesPage({
                   <div className="text-2xl font-bold">
                     {responses.length > 0
                       ? Math.round(
-                          responses.reduce(
-                            (sum, r) => sum + r.completionPercentage,
-                            0
-                          ) / responses.length
-                        )
+                        responses.reduce(
+                          (sum, r) => sum + r.completionPercentage,
+                          0
+                        ) / responses.length
+                      )
                       : 0}
                     %
                   </div>
@@ -439,17 +439,17 @@ export default function TemplateResponsesPage({
                               <div>
                                 <div className="font-medium">
                                   {typeof response.userId === "object" &&
-                                  response.userId
+                                    response.userId
                                     ? `${response.userId.firstName} ${response.userId.lastName}`
                                     : response.submitterInfo?.name ||
-                                      "Anonymous"}
+                                    "Anonymous"}
                                 </div>
                                 <div className="text-sm text-muted-foreground">
                                   {typeof response.userId === "object" &&
-                                  response.userId
+                                    response.userId
                                     ? response.userId.email
                                     : response.submitterInfo?.email ||
-                                      "No email"}
+                                    "No email"}
                                 </div>
                               </div>
                             </TableCell>

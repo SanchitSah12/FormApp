@@ -33,17 +33,17 @@ import Link from "next/link";
 interface FormField {
   id: string;
   type:
-    | "text"
-    | "email"
-    | "phone"
-    | "number"
-    | "textarea"
-    | "select"
-    | "multiselect"
-    | "checkbox"
-    | "radio"
-    | "date"
-    | "file";
+  | "text"
+  | "email"
+  | "phone"
+  | "number"
+  | "textarea"
+  | "select"
+  | "multiselect"
+  | "checkbox"
+  | "radio"
+  | "date"
+  | "file";
   label: string;
   placeholder?: string;
   required: boolean;
@@ -115,14 +115,16 @@ export default function EditTemplatePage({ params }: EditTemplatePageProps) {
       const fields =
         templateData.sections && templateData.sections.length > 0
           ? templateData.sections[0].fields.map((field: any) => ({
-              ...field,
-              options: field.options
-                ? field.options.map((opt: any) =>
-                    typeof opt === "string" ? opt : opt.label || opt.value
-                  )
-                : undefined,
-            })) || []
+            ...field,
+            options: field.options
+              ? field.options.map((opt: any) =>
+                typeof opt === "string" ? opt : opt.label || opt.value
+              )
+              : undefined,
+          })) || []
           : [];
+
+      console.log(fields, templateData);
 
       setTemplate({
         name: templateData.name,
@@ -201,9 +203,9 @@ export default function EditTemplatePage({ params }: EditTemplatePageProps) {
               ...field,
               options: field.options
                 ? field.options.map((opt) => ({
-                    value: opt,
-                    label: opt,
-                  }))
+                  value: opt,
+                  label: opt,
+                }))
                 : undefined,
             })),
             order: 1,
@@ -251,6 +253,8 @@ export default function EditTemplatePage({ params }: EditTemplatePageProps) {
       </ProtectedRoute>
     );
   }
+
+  console.log(template);
 
   return (
     <ProtectedRoute requireAdmin>
@@ -446,22 +450,27 @@ export default function EditTemplatePage({ params }: EditTemplatePageProps) {
                         {(field.type === "select" ||
                           field.type === "multiselect" ||
                           field.type === "radio") && (
-                          <div className="space-y-2">
-                            <Label>Options (one per line)</Label>
-                            <Textarea
-                              value={field.options?.join("\n") || ""}
-                              onChange={(e) =>
-                                updateField(index, {
-                                  options: e.target.value
-                                    .split("\n")
-                                    .filter((opt) => opt.trim()),
-                                })
-                              }
-                              placeholder="Option 1&#10;Option 2&#10;Option 3"
-                              rows={3}
-                            />
-                          </div>
-                        )}
+                            <div className="space-y-2">
+                              <Label>Options (one per line)</Label>
+                              <Textarea
+                                value={field.options?.join("\n") || ""}
+                                onChange={(e) =>
+                                  updateField(index, {
+                                    options: e.target.value.split("\n"),
+                                  })
+                                }
+                                onBlur={(e) =>
+                                  updateField(index, {
+                                    options: e.target.value
+                                      .split("\n")
+                                      .filter((opt) => opt.trim()),
+                                  })
+                                }
+                                placeholder="Option 1&#10;Option 2&#10;Option 3"
+                                rows={3}
+                              />
+                            </div>
+                          )}
 
                         <div className="flex items-center space-x-2">
                           <input

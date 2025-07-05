@@ -34,8 +34,9 @@ const fieldSchema = Joi.object({
     condition: Joi.string().optional(),
     value: Joi.any().optional()
   }).optional(),
-  order: Joi.number().default(0)
-});
+  order: Joi.number().default(0),
+  _id: Joi.string().optional()
+}).unknown(true);
 
 const sectionSchema = Joi.object({
   id: Joi.string().required(),
@@ -48,7 +49,7 @@ const sectionSchema = Joi.object({
     condition: Joi.string().optional(),
     value: Joi.any().optional()
   }).optional()
-});
+}).unknown(true);
 
 const templateSchema = Joi.object({
   name: Joi.string().required(),
@@ -197,9 +198,13 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     const template = await Template.findByIdAndUpdate(
       req.params.id,
       {
-        ...value,
-        updatedBy: req.user._id,
-        version: { $inc: 1 }
+        $set: {
+          ...value,
+          updatedBy: req.user._id
+        },
+        $inc: {
+          version: 1
+        }
       },
       { new: true, runValidators: true }
     ).populate('createdBy updatedBy', 'firstName lastName email');
@@ -354,7 +359,8 @@ router.post('/:id/share', authenticateToken, requireAdmin, async (req, res) => {
 
     await template.save();
 
-    const shareUrl = `${req.protocol}://${req.get('host')}/public/forms/${shareToken}`;
+    const frontendUrl = process.env.CORS_ORIGIN || 'http://localhost:3000';
+    const shareUrl = `${frontendUrl}/public/forms/${shareToken}`;
 
     res.json({
       message: 'Sharing link generated successfully',
