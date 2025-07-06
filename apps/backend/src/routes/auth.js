@@ -2,7 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const Joi = require('joi');
 const User = require('../models/User');
-const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { authenticateToken, requireAdmin, requireSuperAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -13,7 +13,7 @@ const registerSchema = Joi.object({
   firstName: Joi.string().required(),
   lastName: Joi.string().required(),
   companyName: Joi.string().optional(),
-  role: Joi.string().valid('admin', 'user').default('user')
+  role: Joi.string().valid('superadmin', 'admin', 'user').default('user')
 });
 
 const loginSchema = Joi.object({
@@ -221,6 +221,134 @@ router.put('/users/:userId/status', authenticateToken, requireAdmin, async (req,
   } catch (error) {
     console.error('Update user status error:', error);
     res.status(500).json({ error: 'Failed to update user status' });
+  }
+});
+
+// Super admin routes
+// Create new admin (super admin only)
+router.post('/create-admin', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { error, value } = registerSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ error: error.details[0].message });
+    }
+
+    const { email, password, firstName, lastName, companyName } = value;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
+
+    // Create new admin user
+    const user = new User({
+      email,
+      password,
+      firstName,
+      lastName,
+      companyName,
+      role: 'admin', // Force admin role
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    await user.save();
+
+    res.json({
+      message: 'Admin created successfully',
+      user: user.toJSON()
+    });
+  } catch (error) {
+    console.error('Create admin error:', error);
+    res.status(500).json({ error: 'Failed to create admin' });
+  }
+});
+
+// Get all admins (super admin only)
+router.get('/admins', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const admins = await User.find({ role: 'admin' })
+      .select('-password')
+      .sort({ createdAt: -1 });
+
+    res.json({ admins });
+  } catch (error) {
+    console.error('Get admins error:', error);
+    res.status(500).json({ error: 'Failed to get admins' });
+  }
+});
+
+// Update admin status (super admin only)
+router.put('/admins/:id/status', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    const admin = await User.findById(id);
+    if (!admin || admin.role !== 'admin') {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    admin.isActive = isActive;
+    await admin.save();
+
+    res.json({
+      message: 'Admin status updated successfully',
+      admin: admin.toJSON()
+    });
+  } catch (error) {
+    console.error('Update admin status error:', error);
+    res.status(500).json({ error: 'Failed to update admin status' });
+  }
+});
+
+// Delete admin (super admin only)
+router.delete('/admins/:id', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const admin = await User.findById(id);
+    if (!admin || admin.role !== 'admin') {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    await User.findByIdAndDelete(id);
+
+    res.json({ message: 'Admin deleted successfully' });
+  } catch (error) {
+    console.error('Delete admin error:', error);
+    res.status(500).json({ error: 'Failed to delete admin' });
+  }
+});
+
+// Get all users (super admin only)
+router.get('/users', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 10, role } = req.query;
+    const query = {};
+    
+    if (role) {
+      query.role = role;
+    }
+
+    const users = await User.find(query)
+      .select('-password')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await User.countDocuments(query);
+
+    res.json({
+      users,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
+    });
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ error: 'Failed to get users' });
   }
 });
 
