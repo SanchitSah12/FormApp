@@ -4,6 +4,8 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
 const path = require('path');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
 const connectDB = require('./config/database');
@@ -12,8 +14,19 @@ const templateRoutes = require('./routes/templates');
 const responseRoutes = require('./routes/responses');
 const exportRoutes = require('./routes/exports');
 const uploadRoutes = require('./routes/uploads');
+const paymentRoutes = require('./routes/payments');
+const analyticsRoutes = require('./routes/analytics');
+const { initializeCollaboration } = require('./sockets/collaboration');
 
 const app = express();
+const server = createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
 
 // Connect to MongoDB
 connectDB();
@@ -38,6 +51,8 @@ app.use('/api/templates', templateRoutes);
 app.use('/api/responses', responseRoutes);
 app.use('/api/exports', exportRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -58,9 +73,13 @@ app.use('*', (req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
+// Initialize Socket.IO collaboration
+initializeCollaboration(io);
+
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`Socket.IO enabled for real-time collaboration`);
 }); 

@@ -69,6 +69,21 @@ const responseSchema = new mongoose.Schema({
   isPublicSubmission: {
     type: Boolean,
     default: false
+  },
+  paymentInfo: {
+    paymentIntentId: String,
+    amount: Number,
+    currency: String,
+    status: String,
+    paidAt: Date,
+    receiptUrl: String,
+    paymentMethod: String
+  },
+  signatureData: {
+    fieldId: String,
+    signature: String, // Base64 encoded signature
+    timestamp: Date,
+    ipAddress: String
   }
 }, {
   timestamps: true

@@ -8,7 +8,7 @@ const fieldSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['text', 'email', 'number', 'select', 'multiselect', 'file', 'textarea', 'checkbox', 'radio', 'date', 'phone']
+    enum: ['text', 'email', 'number', 'select', 'multiselect', 'file', 'textarea', 'checkbox', 'radio', 'date', 'phone', 'signature', 'payment', 'location', 'media', 'qr-scan', 'drawing', 'repeatable-group']
   },
   label: {
     type: String,
@@ -130,6 +130,146 @@ const templateSchema = new mongoose.Schema({
     createdAt: {
       type: Date
     }
+  },
+  lastModified: {
+    type: Date,
+    default: Date.now
+  },
+  lastModifiedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  comments: [{
+    _id: String,
+    fieldId: String,
+    parentId: String,
+    text: String,
+    author: {
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      firstName: String,
+      lastName: String,
+      email: String
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    },
+    resolved: {
+      type: Boolean,
+      default: false
+    },
+    resolvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    resolvedAt: Date
+  }],
+  approvalWorkflow: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    stages: [{
+      name: String,
+      description: String,
+      approvers: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }],
+      requiredApprovals: {
+        type: Number,
+        default: 1
+      },
+      order: Number
+    }]
+  },
+  offlineSettings: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    gpsRequired: {
+      type: Boolean,
+      default: false
+    },
+    mediaCapture: {
+      type: Boolean,
+      default: false
+    },
+    qrScanning: {
+      type: Boolean,
+      default: false
+    }
+  },
+  localization: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    defaultLanguage: {
+      type: String,
+      default: 'en'
+    },
+    supportedLanguages: [{
+      code: String,
+      name: String
+    }],
+    translations: mongoose.Schema.Types.Mixed
+  },
+  accessibility: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    highContrast: {
+      type: Boolean,
+      default: false
+    },
+    screenReader: {
+      type: Boolean,
+      default: false
+    },
+    keyboardNavigation: {
+      type: Boolean,
+      default: false
+    }
+  },
+  paymentSettings: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    stripeSettings: {
+      publishableKey: String,
+      priceId: String,
+      amount: Number,
+      currency: {
+        type: String,
+        default: 'usd'
+      }
+    },
+    paypalSettings: {
+      clientId: String,
+      amount: Number,
+      currency: {
+        type: String,
+        default: 'USD'
+      }
+    }
+  },
+  signatureSettings: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    required: {
+      type: Boolean,
+      default: false
+    },
+    fields: [String] // Field IDs that require signatures
   }
 }, {
   timestamps: true
