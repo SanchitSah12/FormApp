@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Template = require('../models/Template');
 const { diff_match_patch } = require('diff-match-patch');
+const { preprocessTemplateData } = require('../utils/templateUtils');
 
 const dmp = new diff_match_patch();
 
@@ -184,8 +185,11 @@ const initializeCollaboration = (io) => {
           return;
         }
 
+        // Preprocess updates to handle string validation fields
+        const preprocessedUpdates = preprocessTemplateData(updates);
+        
         // Apply updates
-        Object.assign(template, updates);
+        Object.assign(template, preprocessedUpdates);
         template.version = (template.version || 0) + 1;
         template.lastModified = new Date();
         template.lastModifiedBy = socket.user._id;

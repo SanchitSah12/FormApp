@@ -1,10 +1,14 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 const Joi = require('joi');
 const Template = require('../models/Template');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { preprocessTemplateData } = require('../utils/templateUtils');
 
 const router = express.Router();
+
+
 
 // Validation schemas
 const fieldSchema = Joi.object({
@@ -332,7 +336,10 @@ router.get('/:id', async (req, res) => {
 // Admin: Create new template
 router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { error, value } = templateSchema.validate(req.body);
+    // Preprocess the data to handle string validation fields
+    const preprocessedData = preprocessTemplateData(req.body);
+    
+    const { error, value } = templateSchema.validate(preprocessedData);
     if (error) {
       return res.status(400).json({ error: error.details[0].message });
     }
@@ -342,7 +349,23 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
       createdBy: req.user._id
     });
 
-    await template.save();
+    try {
+      await template.save();
+    } catch (saveError) {
+      console.error('Template save error:', saveError);
+      if (saveError.name === 'ValidationError') {
+        const validationErrors = Object.keys(saveError.errors).map(key => ({
+          field: key,
+          message: saveError.errors[key].message,
+          value: saveError.errors[key].value
+        }));
+        return res.status(400).json({ 
+          error: 'Validation failed', 
+          details: validationErrors 
+        });
+      }
+      throw saveError;
+    }
     await template.populate('createdBy', 'firstName lastName email');
 
     res.status(201).json({
@@ -360,25 +383,46 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     console.log('Update template request body:', JSON.stringify(req.body, null, 2));
     
-    const { error, value } = templateUpdateSchema.validate(req.body);
+    // Preprocess the data to handle string validation fields
+    const preprocessedData = preprocessTemplateData(req.body);
+    console.log('Preprocessed data:', JSON.stringify(preprocessedData, null, 2));
+    
+    const { error, value } = templateUpdateSchema.validate(preprocessedData);
     if (error) {
       console.log('Validation error:', error.details[0].message);
       return res.status(400).json({ error: error.details[0].message });
     }
 
-    const template = await Template.findByIdAndUpdate(
-      req.params.id,
-      {
-        $set: {
-          ...value,
-          updatedBy: req.user._id
+    let template;
+    try {
+      template = await Template.findByIdAndUpdate(
+        req.params.id,
+        {
+          $set: {
+            ...value,
+            updatedBy: req.user._id
+          },
+          $inc: {
+            version: 1
+          }
         },
-        $inc: {
-          version: 1
-        }
-      },
-      { new: true, runValidators: true }
-    ).populate('createdBy updatedBy', 'firstName lastName email');
+        { new: true, runValidators: true }
+      ).populate('createdBy updatedBy', 'firstName lastName email');
+    } catch (updateError) {
+      console.error('Template update error:', updateError);
+      if (updateError.name === 'ValidationError') {
+        const validationErrors = Object.keys(updateError.errors).map(key => ({
+          field: key,
+          message: updateError.errors[key].message,
+          value: updateError.errors[key].value
+        }));
+        return res.status(400).json({ 
+          error: 'Validation failed', 
+          details: validationErrors 
+        });
+      }
+      throw updateError;
+    }
 
     if (!template) {
       return res.status(404).json({ error: 'Template not found' });
@@ -515,7 +559,6 @@ router.post('/:id/share', authenticateToken, requireAdmin, async (req, res) => {
     }
 
     // Generate a unique sharing token
-    const crypto = require('crypto');
     const shareToken = crypto.randomBytes(32).toString('hex');
 
     // Add sharing configuration to template
@@ -528,7 +571,23 @@ router.post('/:id/share', authenticateToken, requireAdmin, async (req, res) => {
       createdAt: new Date()
     };
 
-    await template.save();
+    try {
+      await template.save();
+    } catch (saveError) {
+      console.error('Template save error in sharing:', saveError);
+      if (saveError.name === 'ValidationError') {
+        const validationErrors = Object.keys(saveError.errors).map(key => ({
+          field: key,
+          message: saveError.errors[key].message,
+          value: saveError.errors[key].value
+        }));
+        return res.status(400).json({ 
+          error: 'Template validation failed', 
+          details: validationErrors 
+        });
+      }
+      throw saveError;
+    }
 
     const frontendUrl = process.env.CORS_ORIGIN || 'http://localhost:3000';
     const shareUrl = `${frontendUrl}/public/forms/${shareToken}`;

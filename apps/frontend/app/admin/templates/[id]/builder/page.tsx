@@ -43,12 +43,14 @@ export default function FormBuilderPage() {
             try {
                 setLoading(true);
                 const response = await api.get(`/templates/${templateId}`);
-                setTemplate(response.data);
+                const templateData = response.data.template || response.data;
+                console.log('Loading template data:', templateData);
+                setTemplate(templateData);
 
                 // Convert template to sections format
-                if (response.data.sections && response.data.sections.length > 0) {
+                if (templateData.sections && templateData.sections.length > 0) {
                     // Use existing sections
-                    const formattedSections: FormSection[] = response.data.sections.map((section: any, index: number) => ({
+                    const formattedSections: FormSection[] = templateData.sections.map((section: any, index: number) => ({
                         id: section.id || `section_${index}`,
                         title: section.title || `Section ${index + 1}`,
                         description: section.description || '',
@@ -65,15 +67,16 @@ export default function FormBuilderPage() {
                         collapsible: section.collapsible || false,
                         isDefault: section.isDefault || index === 0
                     }));
+                    console.log('Setting sections from existing sections:', formattedSections);
                     setSections(formattedSections);
-                } else if (response.data.fields && response.data.fields.length > 0) {
+                } else if (templateData.fields && templateData.fields.length > 0) {
                     // Convert legacy fields to sections
                     const defaultSection: FormSection = {
                         id: 'default_section',
                         title: 'Form Fields',
                         description: 'Main form section',
                         order: 0,
-                        fields: response.data.fields.map((field: any, index: number) => ({
+                        fields: templateData.fields.map((field: any, index: number) => ({
                             ...field,
                             id: field._id || field.id || `field_${index}`,
                             order: index,
@@ -84,6 +87,7 @@ export default function FormBuilderPage() {
                         conditionalLogic: [],
                         isDefault: true
                     };
+                    console.log('Setting sections from legacy fields:', [defaultSection]);
                     setSections([defaultSection]);
                 } else {
                     // Create empty default section
@@ -96,6 +100,7 @@ export default function FormBuilderPage() {
                         conditionalLogic: [],
                         isDefault: true
                     };
+                    console.log('Setting empty default section:', [emptySection]);
                     setSections([emptySection]);
                 }
             } catch (error) {

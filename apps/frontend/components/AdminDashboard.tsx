@@ -20,6 +20,10 @@ export const AdminDashboard = () => {
     const [responseFilter, setResponseFilter] = useState<string>('all');
     const [isLoading, setIsLoading] = useState(true);
 
+    // Filter templates by status
+    const activeTemplates = templates.filter(template => template.isActive);
+    const inactiveTemplates = templates.filter(template => !template.isActive);
+
 
     useEffect(() => {
         fetchData();
@@ -54,7 +58,7 @@ export const AdminDashboard = () => {
 
     const handleToggleTemplate = async (templateId: string, isActive: boolean) => {
         try {
-            await api.patch(`/templates/${templateId}`, { isActive: !isActive });
+            await api.patch(`/templates/${templateId}/toggle-active`);
             await fetchData();
             toast.success(`Template ${!isActive ? 'activated' : 'deactivated'}`);
         } catch (error) {
@@ -123,7 +127,7 @@ export const AdminDashboard = () => {
                     <CardContent>
                         <div className="text-2xl font-bold">{templates.length}</div>
                         <p className="text-xs text-muted-foreground">
-                            {templates.filter(t => t.isActive).length} active
+                            {activeTemplates.length} active, {inactiveTemplates.length} inactive
                         </p>
                     </CardContent>
                 </Card>
@@ -160,81 +164,163 @@ export const AdminDashboard = () => {
             </div>
 
             {/* Templates Management */}
-            <Tabs defaultValue="templates" className="w-full">
+            <Tabs defaultValue="active-templates" className="w-full">
                 <TabsList>
-                    <TabsTrigger value="templates">Templates</TabsTrigger>
+                    <TabsTrigger value="active-templates">
+                        Active Templates ({activeTemplates.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="inactive-templates">
+                        Inactive Templates ({inactiveTemplates.length})
+                    </TabsTrigger>
                     <TabsTrigger value="responses">Recent Responses</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="templates" className="space-y-4">
+                <TabsContent value="active-templates" className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Templates</CardTitle>
-                            <CardDescription>Manage your form templates</CardDescription>
+                            <CardTitle>Active Templates</CardTitle>
+                            <CardDescription>Templates currently available to users</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Name</TableHead>
-                                        <TableHead>Category</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Version</TableHead>
-                                        <TableHead>Created</TableHead>
-                                        <TableHead>Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {templates.map((template) => (
-                                        <TableRow key={template._id}>
-                                            <TableCell className="font-medium">{template.name}</TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline">{template.category}</Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant={template.isActive ? "default" : "secondary"}>
-                                                    {template.isActive ? "Active" : "Inactive"}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>{template.version}</TableCell>
-                                            <TableCell>
-                                                {new Date(template.createdAt).toLocaleDateString()}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex space-x-2">
-                                                    <Button size="sm" variant="outline" asChild>
-                                                        <Link href={`/admin/templates/${template._id}`}>
-                                                            Edit
-                                                        </Link>
-                                                    </Button>
-                                                    <Button size="sm" variant="outline" asChild>
-                                                        <Link href={`/admin/templates/${template._id}/builder`}>
-                                                            Form Builder
-                                                        </Link>
-                                                    </Button>
-                                                    <Button size="sm" variant="outline" asChild>
-                                                        <Link href={`/admin/templates/${template._id}/collaborate`}>
-                                                            Collaborate
-                                                        </Link>
-                                                    </Button>
-                                                    <Button size="sm" variant="outline" asChild>
-                                                        <Link href={`/admin/templates/${template._id}/responses`}>
-                                                            Responses
-                                                        </Link>
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => handleToggleTemplate(template._id, template.isActive)}
-                                                    >
-                                                        {template.isActive ? 'Deactivate' : 'Activate'}
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
+                            {activeTemplates.length > 0 ? (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Name</TableHead>
+                                            <TableHead>Category</TableHead>
+                                            <TableHead>Version</TableHead>
+                                            <TableHead>Created</TableHead>
+                                            <TableHead>Actions</TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {activeTemplates.map((template) => (
+                                            <TableRow key={template._id}>
+                                                <TableCell className="font-medium">{template.name}</TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline">{template.category}</Badge>
+                                                </TableCell>
+                                                <TableCell>{template.version}</TableCell>
+                                                <TableCell>
+                                                    {new Date(template.createdAt).toLocaleDateString()}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex space-x-2">
+                                                        <Button size="sm" variant="outline" asChild>
+                                                            <Link href={`/admin/templates/${template._id}`}>
+                                                                Edit
+                                                            </Link>
+                                                        </Button>
+                                                        <Button size="sm" variant="outline" asChild>
+                                                            <Link href={`/admin/templates/${template._id}/builder`}>
+                                                                Form Builder
+                                                            </Link>
+                                                        </Button>
+                                                        <Button size="sm" variant="outline" asChild>
+                                                            <Link href={`/admin/templates/${template._id}/collaborate`}>
+                                                                Collaborate
+                                                            </Link>
+                                                        </Button>
+                                                        <Button size="sm" variant="outline" asChild>
+                                                            <Link href={`/admin/templates/${template._id}/responses`}>
+                                                                Responses
+                                                            </Link>
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="destructive"
+                                                            onClick={() => handleToggleTemplate(template._id, template.isActive)}
+                                                        >
+                                                            Deactivate
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            ) : (
+                                <div className="text-center py-8">
+                                    <p className="text-muted-foreground">No active templates found</p>
+                                    <Button asChild className="mt-4">
+                                        <Link href="/admin/templates/new">
+                                            <Plus className="mr-2 h-4 w-4" />
+                                            Create Your First Template
+                                        </Link>
+                                    </Button>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="inactive-templates" className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Inactive Templates</CardTitle>
+                            <CardDescription>Templates that are currently disabled</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {inactiveTemplates.length > 0 ? (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Name</TableHead>
+                                            <TableHead>Category</TableHead>
+                                            <TableHead>Version</TableHead>
+                                            <TableHead>Created</TableHead>
+                                            <TableHead>Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {inactiveTemplates.map((template) => (
+                                            <TableRow key={template._id}>
+                                                <TableCell className="font-medium">{template.name}</TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline">{template.category}</Badge>
+                                                </TableCell>
+                                                <TableCell>{template.version}</TableCell>
+                                                <TableCell>
+                                                    {new Date(template.createdAt).toLocaleDateString()}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex space-x-2">
+                                                        <Button size="sm" variant="outline" asChild>
+                                                            <Link href={`/admin/templates/${template._id}`}>
+                                                                Edit
+                                                            </Link>
+                                                        </Button>
+                                                        <Button size="sm" variant="outline" asChild>
+                                                            <Link href={`/admin/templates/${template._id}/builder`}>
+                                                                Form Builder
+                                                            </Link>
+                                                        </Button>
+                                                        <Button size="sm" variant="outline" asChild>
+                                                            <Link href={`/admin/templates/${template._id}/collaborate`}>
+                                                                Collaborate
+                                                            </Link>
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="default"
+                                                            onClick={() => handleToggleTemplate(template._id, template.isActive)}
+                                                        >
+                                                            Activate
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            ) : (
+                                <div className="text-center py-8">
+                                    <p className="text-muted-foreground">No inactive templates found</p>
+                                    <p className="text-sm text-muted-foreground mt-2">
+                                        All your templates are currently active and available to users.
+                                    </p>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>

@@ -9,11 +9,18 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CollaborationPanel } from './CollaborationPanel';
+import { SectionBasedFormBuilder } from '@/components/form-builder/SectionBasedFormBuilder';
+import { FieldPropertiesPanel } from '@/components/form-builder/FieldPropertiesPanel';
+import { ConditionalLogicBuilder } from '@/components/form-builder/ConditionalLogicBuilder';
+import { LiveFormPreview } from '@/components/form-builder/LiveFormPreview';
 import { useCollaboration } from '@/hooks/useCollaboration';
+import { FormSection, FormField } from '@/types/form-builder';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Save, Users, Lock, Unlock, MessageSquare, Eye, History } from 'lucide-react';
+import { Settings, Rule, Visibility } from '@mui/icons-material';
 
 interface Template {
     _id: string;
@@ -43,6 +50,10 @@ export const CollaborativeTemplateEditor = ({
     const [isSaving, setIsSaving] = useState(false);
     const [collaborationVisible, setCollaborationVisible] = useState(false);
     const [activeFieldId, setActiveFieldId] = useState<string>('');
+    const [sections, setSections] = useState<FormSection[]>([]);
+    const [selectedFieldId, setSelectedFieldId] = useState<string>('');
+    const [activeTab, setActiveTab] = useState<'properties' | 'conditional' | 'preview'>('properties');
+    const [isDirty, setIsDirty] = useState(false);
 
     const collaboration = useCollaboration(templateId);
 
@@ -86,7 +97,62 @@ export const CollaborativeTemplateEditor = ({
         try {
             setIsLoading(true);
             const response = await api.get(`/templates/${templateId}`);
-            setTemplate(response.data.template);
+            const templateData = response.data.template || response.data;
+            setTemplate(templateData);
+
+            // Convert template to sections format
+            if (templateData.sections && templateData.sections.length > 0) {
+                // Use existing sections
+                const formattedSections: FormSection[] = templateData.sections.map((section: any, index: number) => ({
+                    id: section.id || `section_${index}`,
+                    title: section.title || `Section ${index + 1}`,
+                    description: section.description || '',
+                    order: section.order || index,
+                    fields: section.fields.map((field: any, fieldIndex: number) => ({
+                        ...field,
+                        id: field._id || field.id || `field_${fieldIndex}`,
+                        order: fieldIndex,
+                        properties: field.properties || {},
+                        validation: field.validation || [],
+                        conditionalLogic: field.conditionalLogic || []
+                    })),
+                    conditionalLogic: section.conditionalLogic || [],
+                    collapsible: section.collapsible || false,
+                    isDefault: section.isDefault || index === 0
+                }));
+                setSections(formattedSections);
+            } else if (templateData.fields && templateData.fields.length > 0) {
+                // Convert legacy fields to sections
+                const defaultSection: FormSection = {
+                    id: 'default_section',
+                    title: 'Form Fields',
+                    description: 'Main form section',
+                    order: 0,
+                    fields: templateData.fields.map((field: any, index: number) => ({
+                        ...field,
+                        id: field._id || field.id || `field_${index}`,
+                        order: index,
+                        properties: field.properties || {},
+                        validation: field.validation || [],
+                        conditionalLogic: field.conditionalLogic || []
+                    })),
+                    conditionalLogic: [],
+                    isDefault: true
+                };
+                setSections([defaultSection]);
+            } else {
+                // Create empty default section
+                const emptySection: FormSection = {
+                    id: 'default_section',
+                    title: 'Main Section',
+                    description: 'Add your form fields here',
+                    order: 0,
+                    fields: [],
+                    conditionalLogic: [],
+                    isDefault: true
+                };
+                setSections([emptySection]);
+            }
         } catch (error) {
             toast.error('Failed to load template');
             router.push('/dashboard');
@@ -96,15 +162,28 @@ export const CollaborativeTemplateEditor = ({
     };
 
     const handleFieldFocus = useCallback((fieldId: string) => {
-        setActiveFieldId(fieldId);
-        collaboration.lockField(fieldId);
+        // Only lock field if it's not already locked by another user
+        const lockStatus = collaboration.isFieldLocked(fieldId);
+        if (!lockStatus) {
+            setActiveFieldId(fieldId);
+            // Add a small delay to prevent immediate locking on quick interactions
+            setTimeout(() => {
+                collaboration.lockField(fieldId);
+            }, 100);
+        } else {
+            // Show warning that field is locked by another user
+            toast.warning(`This field is currently being edited by ${lockStatus.user.firstName} ${lockStatus.user.lastName}`);
+        }
     }, [collaboration]);
 
     const handleFieldBlur = useCallback((fieldId: string) => {
-        if (activeFieldId === fieldId) {
-            setActiveFieldId('');
-            collaboration.unlockField(fieldId);
-        }
+        // Use a timeout to prevent immediate unlocking when switching between elements
+        setTimeout(() => {
+            if (activeFieldId === fieldId) {
+                setActiveFieldId('');
+                collaboration.unlockField(fieldId);
+            }
+        }, 200);
     }, [activeFieldId, collaboration]);
 
     const handleTemplateChange = useCallback((updates: Partial<Template>) => {
@@ -122,8 +201,20 @@ export const CollaborativeTemplateEditor = ({
 
         try {
             setIsSaving(true);
-            const response = await api.put(`/templates/${templateId}`, template);
-            setTemplate(response.data.template);
+            const updateData = {
+                ...template,
+                sections: sections,
+                sectionNavigation: {
+                    type: 'conditional',
+                    allowBackNavigation: true,
+                    showProgressBar: true,
+                    showSectionList: true,
+                    autoAdvance: false
+                }
+            };
+            const response = await api.put(`/templates/${templateId}`, updateData);
+            setTemplate(response.data.template || response.data);
+            setIsDirty(false);
             toast.success('Template saved successfully');
         } catch (error) {
             toast.error('Failed to save template');
@@ -132,6 +223,62 @@ export const CollaborativeTemplateEditor = ({
         }
     };
 
+    // Form builder handlers
+    const handleFieldSelect = useCallback((fieldId: string) => {
+        setSelectedFieldId(fieldId);
+        if (fieldId) {
+            setActiveTab('properties');
+        }
+    }, []);
+
+    const handleFieldUpdate = useCallback((fieldId: string, updates: Partial<FormField>) => {
+        setSections(prevSections =>
+            prevSections.map(section => ({
+                ...section,
+                fields: section.fields.map(field =>
+                    field.id === fieldId ? { ...field, ...updates } : field
+                )
+            }))
+        );
+        setIsDirty(true);
+    }, []);
+
+    const handleFieldDelete = useCallback((fieldId: string) => {
+        setSections(prevSections =>
+            prevSections.map(section => ({
+                ...section,
+                fields: section.fields.filter(field => field.id !== fieldId)
+            }))
+        );
+
+        // Clear selection if deleted field was selected
+        if (selectedFieldId === fieldId) {
+            setSelectedFieldId('');
+        }
+
+        setIsDirty(true);
+        toast.success('Field deleted');
+    }, [selectedFieldId]);
+
+    const handleSectionsUpdate = useCallback((newSections: FormSection[]) => {
+        setSections(newSections);
+        setIsDirty(true);
+    }, []);
+
+    const handleSectionUpdate = useCallback((sectionId: string, updates: Partial<FormSection>) => {
+        setSections(prevSections =>
+            prevSections.map(section =>
+                section.id === sectionId ? { ...section, ...updates } : section
+            )
+        );
+        setIsDirty(true);
+    }, []);
+
+    const handleAddComment = useCallback((fieldId: string, comment: string) => {
+        collaboration.addComment(fieldId, comment);
+        toast.success('Comment added');
+    }, [collaboration]);
+
     const getFieldLockStatus = (fieldId: string) => {
         return collaboration.isFieldLocked(fieldId);
     };
@@ -139,6 +286,14 @@ export const CollaborativeTemplateEditor = ({
     const getFieldComments = (fieldId: string) => {
         return collaboration.getFieldComments(fieldId);
     };
+
+    // Get selected field
+    const selectedField = sections
+        .flatMap(section => section.fields)
+        .find(field => field.id === selectedFieldId);
+
+    // Get all fields for conditional logic
+    const allFields = sections.flatMap(section => section.fields);
 
     if (isLoading) {
         return (
@@ -187,7 +342,7 @@ export const CollaborativeTemplateEditor = ({
                     </Button>
 
                     {/* Save Button */}
-                    <Button onClick={handleSaveTemplate} disabled={isSaving}>
+                    <Button onClick={handleSaveTemplate} disabled={isSaving || !isDirty}>
                         <Save className="h-4 w-4 mr-2" />
                         {isSaving ? 'Saving...' : 'Save'}
                     </Button>
@@ -212,9 +367,9 @@ export const CollaborativeTemplateEditor = ({
                                     onChange={(e) => handleTemplateChange({ name: e.target.value })}
                                     onFocus={() => handleFieldFocus('name')}
                                     onBlur={() => handleFieldBlur('name')}
-                                    disabled={!!getFieldLockStatus('name')}
+                                    disabled={!!getFieldLockStatus('name') && activeFieldId !== 'name'}
                                 />
-                                {getFieldLockStatus('name') && (
+                                {getFieldLockStatus('name') && activeFieldId !== 'name' && (
                                     <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
                                         <Lock className="h-4 w-4 text-yellow-500" />
                                     </div>
@@ -225,7 +380,7 @@ export const CollaborativeTemplateEditor = ({
                                     </div>
                                 )}
                             </div>
-                            {getFieldLockStatus('name') && (
+                            {getFieldLockStatus('name') && activeFieldId !== 'name' && (
                                 <p className="text-sm text-yellow-600">
                                     Field locked by {getFieldLockStatus('name')?.user.firstName} {getFieldLockStatus('name')?.user.lastName}
                                 </p>
@@ -241,10 +396,10 @@ export const CollaborativeTemplateEditor = ({
                                     onChange={(e) => handleTemplateChange({ description: e.target.value })}
                                     onFocus={() => handleFieldFocus('description')}
                                     onBlur={() => handleFieldBlur('description')}
-                                    disabled={!!getFieldLockStatus('description')}
+                                    disabled={!!getFieldLockStatus('description') && activeFieldId !== 'description'}
                                     rows={3}
                                 />
-                                {getFieldLockStatus('description') && (
+                                {getFieldLockStatus('description') && activeFieldId !== 'description' && (
                                     <div className="absolute right-2 top-2">
                                         <Lock className="h-4 w-4 text-yellow-500" />
                                     </div>
@@ -255,7 +410,7 @@ export const CollaborativeTemplateEditor = ({
                                     </div>
                                 )}
                             </div>
-                            {getFieldLockStatus('description') && (
+                            {getFieldLockStatus('description') && activeFieldId !== 'description' && (
                                 <p className="text-sm text-yellow-600">
                                     Field locked by {getFieldLockStatus('description')?.user.firstName} {getFieldLockStatus('description')?.user.lastName}
                                 </p>
@@ -268,7 +423,7 @@ export const CollaborativeTemplateEditor = ({
                                 <Select
                                     value={template.category}
                                     onValueChange={(value) => handleTemplateChange({ category: value })}
-                                    disabled={!!getFieldLockStatus('category')}
+                                    disabled={!!getFieldLockStatus('category') && activeFieldId !== 'category'}
                                 >
                                     <SelectTrigger
                                         onFocus={() => handleFieldFocus('category')}
@@ -285,7 +440,7 @@ export const CollaborativeTemplateEditor = ({
                                         <SelectItem value="other">Other</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                {getFieldLockStatus('category') && (
+                                {getFieldLockStatus('category') && activeFieldId !== 'category' && (
                                     <div className="absolute right-8 top-1/2 transform -translate-y-1/2">
                                         <Lock className="h-4 w-4 text-yellow-500" />
                                     </div>
@@ -296,7 +451,7 @@ export const CollaborativeTemplateEditor = ({
                                     </div>
                                 )}
                             </div>
-                            {getFieldLockStatus('category') && (
+                            {getFieldLockStatus('category') && activeFieldId !== 'category' && (
                                 <p className="text-sm text-yellow-600">
                                     Field locked by {getFieldLockStatus('category')?.user.firstName} {getFieldLockStatus('category')?.user.lastName}
                                 </p>
@@ -382,19 +537,75 @@ export const CollaborativeTemplateEditor = ({
                 </Card>
             </div>
 
-            {/* Field Editor would go here */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Form Fields</CardTitle>
-                    <CardDescription>Configure form fields and logic</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-center py-8 text-muted-foreground">
-                        <p>Field editor will be implemented in the next phase</p>
-                        <p className="text-sm">This will include drag-and-drop field creation and real-time collaboration</p>
-                    </div>
-                </CardContent>
-            </Card>
+            {/* Form Builder */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-[600px] lg:h-[800px]">
+                {/* Form Builder */}
+                <div className="lg:col-span-3">
+                    <SectionBasedFormBuilder
+                        sections={sections}
+                        onSectionsChange={handleSectionsUpdate}
+                        selectedFieldId={selectedFieldId}
+                        onFieldSelect={handleFieldSelect}
+                    />
+                </div>
+
+                {/* Side Panel */}
+                <div className="lg:col-span-1">
+                    <Card className="h-full">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Form Configuration</CardTitle>
+                            <CardDescription>Configure fields and logic</CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+                                <TabsList className="grid w-full grid-cols-3 m-4">
+                                    <TabsTrigger value="properties" className="flex items-center gap-1">
+                                        <Settings className="h-3 w-3" />
+                                        <span className="hidden sm:inline">Properties</span>
+                                    </TabsTrigger>
+                                    <TabsTrigger value="conditional" className="flex items-center gap-1">
+                                        <Rule className="h-3 w-3" />
+                                        <span className="hidden sm:inline">Logic</span>
+                                    </TabsTrigger>
+                                    <TabsTrigger value="preview" className="flex items-center gap-1">
+                                        <Visibility className="h-3 w-3" />
+                                        <span className="hidden sm:inline">Preview</span>
+                                    </TabsTrigger>
+                                </TabsList>
+
+                                <TabsContent value="properties" className="p-4 pt-0">
+                                    <FieldPropertiesPanel
+                                        field={selectedField || null}
+                                        onFieldUpdate={handleFieldUpdate}
+                                        onFieldDelete={handleFieldDelete}
+                                        onAddComment={handleAddComment}
+                                        comments={[]}
+                                    />
+                                </TabsContent>
+
+                                <TabsContent value="conditional" className="p-4 pt-0">
+                                    <ConditionalLogicBuilder
+                                        field={selectedField}
+                                        allFields={allFields}
+                                        allSections={sections}
+                                        onFieldUpdate={handleFieldUpdate}
+                                        onSectionUpdate={handleSectionUpdate}
+                                    />
+                                </TabsContent>
+
+                                <TabsContent value="preview" className="p-4 pt-0">
+                                    <LiveFormPreview
+                                        sections={sections}
+                                        templateName={template?.name || 'Untitled Form'}
+                                        templateDescription={template?.description || 'Form preview'}
+                                        selectedFieldId={selectedFieldId}
+                                    />
+                                </TabsContent>
+                            </Tabs>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
 
             {/* Collaboration Panel */}
             <CollaborationPanel

@@ -417,6 +417,30 @@ const templateSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Pre-save middleware to preprocess template data
+templateSchema.pre('save', function(next) {
+  const { preprocessTemplateData } = require('../utils/templateUtils');
+  
+  // Only preprocess if this is a new document or if sections/fields have been modified
+  if (this.isNew || this.isModified('sections') || this.isModified('fields')) {
+    try {
+      const processed = preprocessTemplateData(this.toObject());
+      
+      // Apply processed data back to the document
+      if (processed.sections) {
+        this.sections = processed.sections;
+      }
+      if (processed.fields) {
+        this.fields = processed.fields;
+      }
+    } catch (error) {
+      console.warn('Error preprocessing template data in pre-save:', error);
+    }
+  }
+  
+  next();
+});
+
 // Index for better performance
 templateSchema.index({ category: 1, isActive: 1 });
 templateSchema.index({ createdBy: 1 });
