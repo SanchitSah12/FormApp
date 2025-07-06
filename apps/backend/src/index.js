@@ -16,6 +16,7 @@ const exportRoutes = require('./routes/exports');
 const uploadRoutes = require('./routes/uploads');
 const paymentRoutes = require('./routes/payments');
 const analyticsRoutes = require('./routes/analytics');
+const notificationRoutes = require('./routes/notifications');
 const { initializeCollaboration } = require('./sockets/collaboration');
 
 const app = express();
@@ -53,6 +54,7 @@ app.use('/api/exports', exportRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

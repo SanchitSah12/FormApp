@@ -21,13 +21,13 @@ const seedDatabase = async () => {
     // console.log('Cleared existing data');
 
     // Create admin user
-    const adminExists = await User.findOne({ email: 'admin@example.com' });
+    const adminExists = await User.findOne({ email: 'sanchit.sah@lumberfi.com' });
     if (!adminExists) {
       const adminUser = new User({
-        email: 'admin@example.com',
+        email: 'sanchit.sah@lumberfi.com',
         password: 'password123',
-        firstName: 'Admin',
-        lastName: 'User',
+        firstName: 'Sanchit',
+        lastName: 'Sah',
         role: 'admin',
         companyName: 'System Admin'
       });

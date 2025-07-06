@@ -11,7 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, FileText, Users, BarChart3, Download } from 'lucide-react';
+import { Plus, FileText, Users, BarChart3, Download, Bot, Bell } from 'lucide-react';
+import { AITemplateChatbot } from '@/components/AITemplateChatbot';
+import { NotificationSettings } from '@/components/NotificationSettings';
 
 export const AdminDashboard = () => {
     const [templates, setTemplates] = useState<Template[]>([]);
@@ -37,7 +39,8 @@ export const AdminDashboard = () => {
 
     const fetchData = async () => {
         try {
-            const templatesResponse = await api.get('/templates');
+            // Fetch all templates (both active and inactive) for admin dashboard
+            const templatesResponse = await api.get('/templates?isActive=all');
             const statsResponse = await api.get('/templates/statistics');
             const responsesResponse = await api.get(`/responses?limit=10${responseFilter !== 'all' ? `&status=${responseFilter}` : ''}`);
 
@@ -172,7 +175,15 @@ export const AdminDashboard = () => {
                     <TabsTrigger value="inactive-templates">
                         Inactive Templates ({inactiveTemplates.length})
                     </TabsTrigger>
+                    <TabsTrigger value="ai-generator">
+                        <Bot className="mr-2 h-4 w-4" />
+                        AI Generator
+                    </TabsTrigger>
                     <TabsTrigger value="responses">Recent Responses</TabsTrigger>
+                    <TabsTrigger value="notifications">
+                        <Bell className="mr-2 h-4 w-4" />
+                        Notifications
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="active-templates" className="space-y-4">
@@ -325,6 +336,10 @@ export const AdminDashboard = () => {
                     </Card>
                 </TabsContent>
 
+                <TabsContent value="ai-generator" className="space-y-4">
+                    <AITemplateChatbot onTemplateGenerated={fetchData} />
+                </TabsContent>
+
                 <TabsContent value="responses" className="space-y-4">
                     <Card>
                         <CardHeader>
@@ -453,6 +468,10 @@ export const AdminDashboard = () => {
                             )}
                         </CardContent>
                     </Card>
+                </TabsContent>
+
+                <TabsContent value="notifications" className="space-y-4">
+                    <NotificationSettings />
                 </TabsContent>
             </Tabs>
         </div>

@@ -5,6 +5,7 @@ const Joi = require('joi');
 const Template = require('../models/Template');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { preprocessTemplateData } = require('../utils/templateUtils');
+const { generateFormTemplate, improveTemplate } = require('../utils/openaiService');
 
 const router = express.Router();
 
@@ -236,7 +237,15 @@ router.get('/', async (req, res) => {
   try {
     const { category, isActive = 'true' } = req.query;
     
-    const query = { isActive: isActive === 'true' };
+    const query = {};
+    
+    // Handle isActive filter
+    if (isActive === 'all') {
+      // Don't filter by isActive - return all templates
+    } else {
+      query.isActive = isActive === 'true';
+    }
+    
     if (category) {
       query.category = category;
     }
@@ -477,6 +486,103 @@ router.patch('/:id/toggle-active', authenticateToken, requireAdmin, async (req, 
   }
 });
 
+// Admin: Generate template from AI prompt
+router.post('/generate-ai', authenticateToken, requireAdmin, async (req, res) => {
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const startTime = Date.now();
+  
+  console.log(`[AI Controller] ${requestId} - Starting AI template generation request`);
+  console.log(`[AI Controller] ${requestId} - User: ${req.user.email} (${req.user._id})`);
+  
+  try {
+    const { prompt } = req.body;
+    console.log(`[AI Controller] ${requestId} - Received prompt: "${prompt?.substring(0, 100)}${prompt?.length > 100 ? '...' : ''}"`);
+
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+      console.log(`[AI Controller] ${requestId} - Validation failed: Invalid prompt`);
+      return res.status(400).json({ error: 'Prompt is required and must be a non-empty string' });
+    }
+
+    console.log(`[AI Controller] ${requestId} - Calling OpenAI service...`);
+    // Generate template using OpenAI
+    const result = await generateFormTemplate(prompt.trim());
+
+    if (result.error) {
+      console.log(`[AI Controller] ${requestId} - OpenAI service returned error: ${result.error}`);
+      return res.status(400).json({ error: result.error });
+    }
+
+    console.log(`[AI Controller] ${requestId} - OpenAI service successful, saving to database...`);
+    console.log(`[AI Controller] ${requestId} - Generated template: "${result.template.name}" with ${result.template.sections?.length} sections`);
+
+    // Preprocess the AI-generated template data to ensure it matches the schema
+    console.log(`[AI Controller] ${requestId} - Preprocessing template data for database validation...`);
+    console.log(`[AI Controller] ${requestId} - Raw AI template data:`, JSON.stringify(result.template, null, 2));
+    const preprocessedData = preprocessTemplateData(result.template);
+    console.log(`[AI Controller] ${requestId} - Template data preprocessed successfully`);
+    console.log(`[AI Controller] ${requestId} - Preprocessed template data:`, JSON.stringify(preprocessedData, null, 2));
+
+    // Create the template in the database
+    const template = new Template({
+      ...preprocessedData,
+      createdBy: req.user._id,
+      isActive: true // AI generated templates start as active
+    });
+
+    try {
+      await template.save();
+      console.log(`[AI Controller] ${requestId} - Template saved to database with ID: ${template._id}`);
+    } catch (saveError) {
+      console.error(`[AI Controller] ${requestId} - Template save error:`, saveError);
+      if (saveError.name === 'ValidationError') {
+        console.error(`[AI Controller] ${requestId} - Validation errors:`, saveError.errors);
+        const validationDetails = Object.keys(saveError.errors).map(key => ({
+          field: key,
+          message: saveError.errors[key].message,
+          value: saveError.errors[key].value,
+          path: saveError.errors[key].path
+        }));
+        console.error(`[AI Controller] ${requestId} - Detailed validation errors:`, validationDetails);
+        return res.status(400).json({ 
+          error: 'AI-generated template validation failed',
+          details: validationDetails
+        });
+      }
+      throw saveError;
+    }
+    
+    await template.populate('createdBy', 'firstName lastName email');
+
+    const endTime = Date.now();
+    console.log(`[AI Controller] ${requestId} - Request completed successfully in ${endTime - startTime}ms`);
+
+    res.status(201).json({
+      message: 'AI template generated successfully',
+      template
+    });
+  } catch (error) {
+    const endTime = Date.now();
+    console.error(`[AI Controller] ${requestId} - Request failed after ${endTime - startTime}ms:`, error);
+    console.error(`[AI Controller] ${requestId} - Error stack:`, error.stack);
+    
+    // Check for specific database errors
+    if (error.name === 'ValidationError') {
+      console.error(`[AI Controller] ${requestId} - Database validation error:`, error.errors);
+      return res.status(400).json({ 
+        error: 'Template validation failed',
+        details: Object.keys(error.errors).map(key => error.errors[key].message)
+      });
+    }
+    
+    if (error.code === 11000) {
+      console.error(`[AI Controller] ${requestId} - Duplicate key error`);
+      return res.status(400).json({ error: 'Template with this name already exists' });
+    }
+    
+    res.status(500).json({ error: 'Failed to generate AI template' });
+  }
+});
+
 // Admin: Clone template
 router.post('/:id/clone', authenticateToken, requireAdmin, async (req, res) => {
   try {
@@ -669,6 +775,79 @@ router.get('/public/:shareToken', async (req, res) => {
   } catch (error) {
     console.error('Get public template error:', error);
     res.status(500).json({ error: 'Failed to get form' });
+  }
+});
+
+// Admin: Improve existing template with AI
+router.post('/:id/improve', authenticateToken, requireAdmin, async (req, res) => {
+  const requestId = `improve_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const startTime = Date.now();
+  
+  console.log(`[AI Controller] ${requestId} - Starting template improvement request`);
+  console.log(`[AI Controller] ${requestId} - User: ${req.user.email} (${req.user._id})`);
+  console.log(`[AI Controller] ${requestId} - Template ID: ${req.params.id}`);
+  
+  try {
+    const templateId = req.params.id;
+    const { feedback } = req.body;
+    console.log(`[AI Controller] ${requestId} - Received feedback: "${feedback?.substring(0, 100)}${feedback?.length > 100 ? '...' : ''}"`);
+
+    if (!feedback || typeof feedback !== 'string' || feedback.trim().length === 0) {
+      console.log(`[AI Controller] ${requestId} - Validation failed: Invalid feedback`);
+      return res.status(400).json({ error: 'Feedback is required and must be a non-empty string' });
+    }
+
+    console.log(`[AI Controller] ${requestId} - Finding template in database...`);
+    const template = await Template.findById(templateId);
+    if (!template) {
+      console.log(`[AI Controller] ${requestId} - Template not found`);
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    console.log(`[AI Controller] ${requestId} - Found template: "${template.name}"`);
+    console.log(`[AI Controller] ${requestId} - Calling OpenAI improvement service...`);
+    
+    const result = await improveTemplate(template.toObject(), feedback.trim());
+
+    if (result.error) {
+      console.log(`[AI Controller] ${requestId} - OpenAI improvement service returned error: ${result.error}`);
+      return res.status(400).json({ error: result.error });
+    }
+
+    console.log(`[AI Controller] ${requestId} - OpenAI improvement successful, updating template in database...`);
+    
+    // Update the template with improvements
+    Object.assign(template, result.template);
+    template.updatedBy = req.user._id;
+    template.updatedAt = new Date();
+
+    await template.save();
+    console.log(`[AI Controller] ${requestId} - Template updated successfully`);
+    
+    await template.populate('createdBy updatedBy', 'firstName lastName email');
+
+    const endTime = Date.now();
+    console.log(`[AI Controller] ${requestId} - Template improvement completed successfully in ${endTime - startTime}ms`);
+
+    res.status(200).json({
+      message: 'Template improved successfully',
+      template
+    });
+  } catch (error) {
+    const endTime = Date.now();
+    console.error(`[AI Controller] ${requestId} - Template improvement failed after ${endTime - startTime}ms:`, error);
+    console.error(`[AI Controller] ${requestId} - Error stack:`, error.stack);
+    
+    // Check for specific database errors
+    if (error.name === 'ValidationError') {
+      console.error(`[AI Controller] ${requestId} - Database validation error:`, error.errors);
+      return res.status(400).json({ 
+        error: 'Template validation failed during improvement',
+        details: Object.keys(error.errors).map(key => error.errors[key].message)
+      });
+    }
+    
+    res.status(500).json({ error: 'Failed to improve template' });
   }
 });
 

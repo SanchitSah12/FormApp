@@ -4,7 +4,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 
 export const api = axios.create({
     baseURL: API_URL,
-    timeout: 10000,
+    timeout: 30000, // Increased to 30 seconds for AI operations
     headers: {
         'Content-Type': 'application/json',
     },
@@ -133,6 +133,45 @@ export const templateApi = {
     },
     getPublicTemplate: async (shareToken: string) => {
         const response = await api.get(`/templates/public/${shareToken}`);
+        return response.data;
+    },
+    // AI generation endpoints with extended timeout
+    generateAITemplate: async (prompt: string) => {
+        // Create a special instance with longer timeout for AI operations
+        const aiApi = axios.create({
+            baseURL: API_URL,
+            timeout: 60000, // 60 seconds for AI generation
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        // Add auth token
+        const token = localStorage.getItem('token');
+        if (token) {
+            aiApi.defaults.headers.Authorization = `Bearer ${token}`;
+        }
+
+        const response = await aiApi.post('/templates/generate-ai', { prompt });
+        return response.data;
+    },
+    improveTemplate: async (id: string, feedback: string) => {
+        // Create a special instance with longer timeout for AI operations
+        const aiApi = axios.create({
+            baseURL: API_URL,
+            timeout: 60000, // 60 seconds for AI improvement
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        // Add auth token
+        const token = localStorage.getItem('token');
+        if (token) {
+            aiApi.defaults.headers.Authorization = `Bearer ${token}`;
+        }
+
+        const response = await aiApi.post(`/templates/${id}/improve`, { feedback });
         return response.data;
     },
 };
@@ -345,4 +384,54 @@ export const uploadApi = {
         const response = await api.get(`/uploads/info/${filename}`);
         return response.data;
     },
+};
+
+// Notification API
+export const notificationApi = {
+    getPreferences: async () => {
+        const response = await api.get('/notifications/preferences');
+        return response.data;
+    },
+    updatePreferences: async (preferences: {
+        emailNotifications?: any;
+        frequency?: string;
+        quietHours?: any;
+        templateNotifications?: any;
+    }) => {
+        const response = await api.put('/notifications/preferences', preferences);
+        return response.data;
+    },
+    getHistory: async (params?: {
+        page?: number;
+        limit?: number;
+        type?: string;
+        status?: string;
+    }) => {
+        const response = await api.get('/notifications/history', { params });
+        return response.data;
+    },
+    markAsRead: async (notificationId: string) => {
+        const response = await api.patch(`/notifications/history/${notificationId}/read`);
+        return response.data;
+    },
+    getStats: async () => {
+        const response = await api.get('/notifications/stats');
+        return response.data;
+    },
+    testEmail: async (testEmail?: string) => {
+        const response = await api.post('/notifications/test-email', { testEmail });
+        return response.data;
+    },
+    broadcast: async (data: {
+        subject: string;
+        message: string;
+        isHtml?: boolean;
+    }) => {
+        const response = await api.post('/notifications/broadcast', data);
+        return response.data;
+    },
+    getAdmins: async () => {
+        const response = await api.get('/notifications/admins');
+        return response.data;
+    }
 }; 

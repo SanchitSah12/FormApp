@@ -2,7 +2,10 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Response = require('../models/Response');
 const Template = require('../models/Template');
+const User = require('../models/User');
 const { authenticateToken, requireAdmin, requireUser } = require('../middleware/auth');
+const notificationService = require('../utils/notificationService');
+const { NotificationHistory } = require('../models/Notification');
 
 const router = express.Router();
 
@@ -140,6 +143,40 @@ router.post('/:id/submit', authenticateToken, requireUser, async (req, res) => {
     response.submittedAt = new Date();
     await response.save();
 
+    // Send notification to admins
+    try {
+      await response.populate('userId', 'firstName lastName email companyName');
+      const submitterInfo = {
+        firstName: response.userId.firstName,
+        lastName: response.userId.lastName,
+        email: response.userId.email,
+        companyName: response.userId.companyName
+      };
+      
+      await notificationService.sendFormSubmissionNotification(
+        response.templateId,
+        response._id,
+        submitterInfo,
+        false // not a public submission
+      );
+
+      // Log notification history
+      await NotificationHistory.create({
+        userId: response.userId._id,
+        type: 'form_submission',
+        title: 'Form Submitted',
+        message: `Form response submitted successfully`,
+        relatedId: response._id,
+        relatedModel: 'Response',
+        status: 'sent',
+        sentAt: new Date(),
+        deliveryMethod: 'email'
+      });
+    } catch (notificationError) {
+      console.error('Failed to send submission notification:', notificationError);
+      // Don't fail the response submission if notification fails
+    }
+
     res.json({
       message: 'Response submitted successfully',
       response
@@ -179,6 +216,8 @@ router.put('/:id', authenticateToken, requireUser, async (req, res) => {
     if (currentSection) {
       response.currentSection = currentSection;
     }
+    const wasSubmitted = status === 'submitted' && response.status !== 'submitted';
+    
     if (status) {
       response.status = status;
       if (status === 'submitted') {
@@ -192,6 +231,42 @@ router.put('/:id', authenticateToken, requireUser, async (req, res) => {
 
     await response.save();
     await response.populate('templateId', 'name description category');
+
+    // Send notification if form was just submitted
+    if (wasSubmitted) {
+      try {
+        await response.populate('userId', 'firstName lastName email companyName');
+        const submitterInfo = {
+          firstName: response.userId.firstName,
+          lastName: response.userId.lastName,
+          email: response.userId.email,
+          companyName: response.userId.companyName
+        };
+        
+        await notificationService.sendFormSubmissionNotification(
+          response.templateId._id,
+          response._id,
+          submitterInfo,
+          false // not a public submission
+        );
+
+        // Log notification history
+        await NotificationHistory.create({
+          userId: response.userId._id,
+          type: 'form_submission',
+          title: 'Form Submitted',
+          message: `Form response submitted successfully`,
+          relatedId: response._id,
+          relatedModel: 'Response',
+          status: 'sent',
+          sentAt: new Date(),
+          deliveryMethod: 'email'
+        });
+      } catch (notificationError) {
+        console.error('Failed to send submission notification:', notificationError);
+        // Don't fail the response submission if notification fails
+      }
+    }
 
     res.json({
       message: 'Response updated successfully',
@@ -404,6 +479,45 @@ router.post('/public/:shareToken', async (req, res) => {
     });
 
     await response.save();
+
+    // Send notification to admins for public submission
+    try {
+      await notificationService.sendFormSubmissionNotification(
+        template._id,
+        response._id,
+        submitterInfo,
+        true // this is a public submission
+      );
+
+      // Log notification history for each admin who received the notification
+      const admins = await User.find({ 
+        role: { $in: ['admin', 'superadmin'] }, 
+        isActive: true 
+      }).select('_id');
+
+      const notificationHistoryPromises = admins.map(admin => 
+        NotificationHistory.create({
+          userId: admin._id,
+          type: 'form_submission',
+          title: 'Public Form Submitted',
+          message: `Public form submission received`,
+          relatedId: response._id,
+          relatedModel: 'Response',
+          status: 'sent',
+          sentAt: new Date(),
+          deliveryMethod: 'email',
+          metadata: {
+            isPublicSubmission: true,
+            submitterInfo: submitterInfo
+          }
+        })
+      );
+
+      await Promise.all(notificationHistoryPromises);
+    } catch (notificationError) {
+      console.error('Failed to send public submission notification:', notificationError);
+      // Don't fail the response submission if notification fails
+    }
 
     res.json({
       message: 'Form submitted successfully',

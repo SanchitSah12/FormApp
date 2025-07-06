@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { FormSection, FormField, FormTemplate } from '@/types/form-builder';
 import { api } from '@/lib/api';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -27,7 +27,9 @@ import {
 export default function FormBuilderPage() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const templateId = params.id as string;
+    const isAIGenerated = searchParams.get('aiGenerated') === 'true';
 
     const [template, setTemplate] = useState<any>(null);
     const [sections, setSections] = useState<FormSection[]>([]);
@@ -69,6 +71,12 @@ export default function FormBuilderPage() {
                     }));
                     console.log('Setting sections from existing sections:', formattedSections);
                     setSections(formattedSections);
+
+                    // If this is an AI-generated template, mark as dirty to enable save
+                    if (isAIGenerated) {
+                        console.log('AI-generated template detected via query param, marking as dirty');
+                        setIsDirty(true);
+                    }
                 } else if (templateData.fields && templateData.fields.length > 0) {
                     // Convert legacy fields to sections
                     const defaultSection: FormSection = {
@@ -89,6 +97,12 @@ export default function FormBuilderPage() {
                     };
                     console.log('Setting sections from legacy fields:', [defaultSection]);
                     setSections([defaultSection]);
+
+                    // If this is an AI-generated template, mark as dirty to enable save
+                    if (isAIGenerated) {
+                        console.log('AI-generated template (legacy fields) detected via query param, marking as dirty');
+                        setIsDirty(true);
+                    }
                 } else {
                     // Create empty default section
                     const emptySection: FormSection = {
@@ -190,6 +204,13 @@ export default function FormBuilderPage() {
             await api.put(`/templates/${templateId}`, updateData);
             setIsDirty(false);
             toast.success('Template saved successfully');
+
+            // Clear the aiGenerated query parameter after first save
+            if (isAIGenerated) {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('aiGenerated');
+                window.history.replaceState({}, '', url.toString());
+            }
         } catch (error) {
             console.error('Error saving template:', error);
             toast.error('Failed to save template');
@@ -265,6 +286,7 @@ export default function FormBuilderPage() {
                                 onClick={handleSave}
                                 disabled={saving || !isDirty}
                                 className="flex items-center gap-2"
+                                title={!isDirty ? 'No changes to save' : saving ? 'Saving...' : 'Save changes'}
                             >
                                 <Save className="h-4 w-4" />
                                 {saving ? 'Saving...' : 'Save'}
@@ -345,6 +367,11 @@ export default function FormBuilderPage() {
                             <span>
                                 {sections.length} sections
                             </span>
+                            {isAIGenerated && (
+                                <span className="text-purple-600 text-sm">
+                                    🤖 AI Generated
+                                </span>
+                            )}
                             {selectedField && (
                                 <span className="text-blue-600">
                                     Selected: {selectedField.label} ({selectedField.type})
@@ -353,10 +380,15 @@ export default function FormBuilderPage() {
                         </div>
 
                         <div className="flex items-center gap-2">
-                            {isDirty && (
+                            {isDirty ? (
                                 <span className="text-orange-600">Unsaved changes</span>
+                            ) : (
+                                <span className="text-green-600">All changes saved</span>
                             )}
                             <span>Last saved: {template?.updatedAt ? new Date(template.updatedAt).toLocaleTimeString() : 'Never'}</span>
+                            <span className="text-xs text-gray-400">
+                                (Dirty: {isDirty ? 'Yes' : 'No'}, Saving: {saving ? 'Yes' : 'No'})
+                            </span>
                         </div>
                     </div>
                 </div>
