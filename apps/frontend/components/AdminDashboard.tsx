@@ -208,6 +208,16 @@ export const AdminDashboard = () => {
                                                         </Link>
                                                     </Button>
                                                     <Button size="sm" variant="outline" asChild>
+                                                        <Link href={`/admin/templates/${template._id}/builder`}>
+                                                            Form Builder
+                                                        </Link>
+                                                    </Button>
+                                                    <Button size="sm" variant="outline" asChild>
+                                                        <Link href={`/admin/templates/${template._id}/collaborate`}>
+                                                            Collaborate
+                                                        </Link>
+                                                    </Button>
+                                                    <Button size="sm" variant="outline" asChild>
                                                         <Link href={`/admin/templates/${template._id}/responses`}>
                                                             Responses
                                                         </Link>

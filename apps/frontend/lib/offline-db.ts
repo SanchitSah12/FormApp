@@ -80,7 +80,7 @@ export class OfflineDatabase extends Dexie {
 
   constructor() {
     super('FormAppOfflineDB');
-    
+
     this.version(1).stores({
       templates: 'id, name, category, lastSynced, isActive',
       responses: 'id, templateId, status, lastModified, sessionId',
@@ -130,13 +130,13 @@ export class OfflineManager {
   }
 
   async getOfflineTemplates(): Promise<OfflineTemplate[]> {
-    return await offlineDB.templates.where('offlineEnabled').equals(true).toArray();
+    return await offlineDB.templates.where('offlineEnabled').equals(1).toArray();
   }
 
   // Response operations
   async saveResponse(response: any, templateId: string): Promise<string> {
     const id = response.id || `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     const offlineResponse: OfflineResponse = {
       id,
       templateId,
@@ -153,7 +153,7 @@ export class OfflineManager {
     };
 
     await offlineDB.responses.put(offlineResponse);
-    
+
     // Add to sync queue if not already synced
     if (response.status !== 'synced') {
       await this.addToSyncQueue('response', 'create', offlineResponse);
@@ -177,7 +177,7 @@ export class OfflineManager {
   // Media file operations
   async saveMediaFile(file: File, responseId: string, fieldId: string): Promise<string> {
     const id = `media_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     const mediaFile: OfflineMediaFile = {
       id,
       responseId,
@@ -210,7 +210,7 @@ export class OfflineManager {
   }
 
   // GPS location capture
-  async captureGPSLocation(): Promise<{ latitude: number; longitude: number; accuracy: number; timestamp: Date } | null> {
+  async captureGPSLocation(): Promise<{ latitude: number; longitude: number; accuracy: number; timestamp: Date; } | null> {
     if (!navigator.geolocation) {
       console.warn('Geolocation is not supported by this browser');
       return null;
@@ -278,19 +278,19 @@ export class OfflineManager {
 
     try {
       const queueItems = await this.getSyncQueue();
-      
+
       for (const item of queueItems) {
         try {
           await this.syncQueueItem(item);
           await this.removeSyncQueueItem(item.id);
         } catch (error) {
           console.error(`Failed to sync item ${item.id}:`, error);
-          
+
           // Increment retry count
           item.retryCount++;
           item.lastAttempt = new Date();
           item.error = error instanceof Error ? error.message : 'Unknown error';
-          
+
           // Remove from queue if max retries reached
           if (item.retryCount >= 5) {
             await this.removeSyncQueueItem(item.id);
@@ -303,7 +303,7 @@ export class OfflineManager {
 
       // Update settings
       await this.updateSyncSettings({ lastSuccessfulSync: new Date() });
-      
+
     } catch (error) {
       console.error('Sync failed:', error);
     } finally {
@@ -314,10 +314,10 @@ export class OfflineManager {
 
   private async syncQueueItem(item: OfflineQueueItem): Promise<void> {
     const { type, action, data } = item;
-    
+
     // This would integrate with your API
     // For now, we'll just simulate the sync
-    
+
     switch (type) {
       case 'response':
         if (action === 'create') {
@@ -367,7 +367,7 @@ export class OfflineManager {
   // Auto-sync setup
   async setupAutoSync(): Promise<void> {
     const settings = await this.getSettings();
-    
+
     if (settings.autoSync) {
       this.syncTimer = setInterval(async () => {
         await this.startSync();
@@ -391,7 +391,7 @@ export class OfflineManager {
     await offlineDB.responses
       .where('lastModified')
       .below(cutoffDate)
-      .and(response => response.status === 'synced')
+      .and(response => response.status === 'submitted')
       .delete();
 
     // Clean up old media files
@@ -421,7 +421,7 @@ export class OfflineManager {
   }
 
   // Storage usage monitoring
-  async getStorageUsage(): Promise<{ used: number; quota: number; available: number }> {
+  async getStorageUsage(): Promise<{ used: number; quota: number; available: number; }> {
     if ('storage' in navigator && 'estimate' in navigator.storage) {
       const estimate = await navigator.storage.estimate();
       return {
@@ -430,7 +430,7 @@ export class OfflineManager {
         available: (estimate.quota || 0) - (estimate.usage || 0)
       };
     }
-    
+
     return { used: 0, quota: 0, available: 0 };
   }
 }

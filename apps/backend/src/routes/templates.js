@@ -9,55 +9,223 @@ const router = express.Router();
 // Validation schemas
 const fieldSchema = Joi.object({
   id: Joi.string().required(),
-  type: Joi.string().valid('text', 'email', 'number', 'select', 'multiselect', 'file', 'textarea', 'checkbox', 'radio', 'date', 'phone').required(),
+  type: Joi.string().valid(
+    // Basic Fields
+    'text', 'textarea', 'email', 'phone', 'number', 'select', 'radio', 'checkbox', 'checkboxGroup',
+    // Advanced Fields  
+    'date', 'time', 'file', 'rating', 'currency', 'url', 'password',
+    // Layout Fields
+    'divider', 'heading', 'paragraph',
+    // Special Fields
+    'payment', 'signature', 'repeater', 'address', 'image',
+    // Legacy support
+    'multiselect', 'datetime', 'location', 'media', 'qr-scan', 'drawing', 'repeatable-group'
+  ).required(),
   label: Joi.string().required(),
-  placeholder: Joi.string().optional(),
+  placeholder: Joi.string().optional().allow(''),
+  description: Joi.string().optional().allow(''),
   required: Joi.boolean().default(false),
-  options: Joi.array().items(Joi.object({
-    value: Joi.string().required(),
-    label: Joi.string().required()
-  })).optional(),
-  validation: Joi.object({
+  order: Joi.number().default(0),
+  section: Joi.string().optional(),
+  
+  // Properties object for field-specific settings
+  properties: Joi.object({
+    width: Joi.string().valid('full', 'half', 'third', 'quarter').optional(),
+    options: Joi.array().items(Joi.object({
+      id: Joi.string().required(),
+      label: Joi.string().required(),
+      value: Joi.string().required()
+    })).optional(),
     min: Joi.number().optional(),
     max: Joi.number().optional(),
+    minLength: Joi.number().optional(),
+    maxLength: Joi.number().optional(),
+    step: Joi.number().optional(),
     pattern: Joi.string().optional(),
-    message: Joi.string().optional()
+    multiple: Joi.boolean().optional(),
+    accept: Joi.string().optional(),
+    maxFileSize: Joi.number().optional(),
+    maxFiles: Joi.number().optional(),
+    level: Joi.number().optional(),
+    content: Joi.string().optional(),
+    amount: Joi.number().optional(),
+    currency: Joi.string().optional(),
+    showLabels: Joi.boolean().optional(),
+    allowHalf: Joi.boolean().optional(),
+    maxRating: Joi.number().optional()
   }).optional(),
+  
+  // Legacy options support
+  options: Joi.array().items(Joi.object({
+    value: Joi.string().required(),
+    label: Joi.string().required(),
+    id: Joi.string().optional()
+  })).optional(),
+  
+  // Validation rules
+  validation: Joi.array().items(Joi.object({
+    id: Joi.string().required(),
+    type: Joi.string().required(),
+    value: Joi.any().optional(),
+    message: Joi.string().required()
+  })).optional(),
+  
+  // Conditional logic
+  conditionalLogic: Joi.array().items(Joi.object({
+    id: Joi.string().required(),
+    conditions: Joi.array().items(Joi.object({
+      fieldId: Joi.string().required(),
+      operator: Joi.string().required(),
+      value: Joi.any().required()
+    })).required(),
+    action: Joi.string().required(),
+    operator: Joi.string().valid('and', 'or').default('and')
+  })).optional(),
+  
+  // Collaboration data
+  collaborationData: Joi.object({
+    lockedBy: Joi.string().optional(),
+    comments: Joi.array().optional(),
+    lastModified: Joi.date().optional(),
+    lastModifiedBy: Joi.string().optional()
+  }).optional(),
+  
+  // Legacy validation support
   helpText: Joi.string().optional(),
   helpFiles: Joi.array().items(Joi.object({
     name: Joi.string().required(),
     url: Joi.string().required(),
     size: Joi.number().optional()
   })).optional(),
-  conditionalLogic: Joi.object({
-    dependsOn: Joi.string().optional(),
-    condition: Joi.string().optional(),
-    value: Joi.any().optional()
-  }).optional(),
-  order: Joi.number().default(0),
+  
   _id: Joi.string().optional()
 }).unknown(true);
 
 const sectionSchema = Joi.object({
   id: Joi.string().required(),
   title: Joi.string().required(),
-  description: Joi.string().optional(),
-  fields: Joi.array().items(fieldSchema).required(),
+  description: Joi.string().optional().allow(''),
   order: Joi.number().default(0),
-  conditionalLogic: Joi.object({
-    dependsOn: Joi.string().optional(),
-    condition: Joi.string().optional(),
-    value: Joi.any().optional()
-  }).optional()
+  fields: Joi.array().items(fieldSchema).required(),
+  collapsible: Joi.boolean().optional(),
+  collapsed: Joi.boolean().optional(),
+  isDefault: Joi.boolean().optional(),
+  
+  // Conditional logic for sections
+  conditionalLogic: Joi.array().items(Joi.object({
+    id: Joi.string().required(),
+    conditions: Joi.array().items(Joi.object({
+      fieldId: Joi.string().required(),
+      operator: Joi.string().required(),
+      value: Joi.any().required()
+    })).required(),
+    action: Joi.string().required(),
+    operator: Joi.string().valid('and', 'or').default('and')
+  })).optional(),
+  
+  // Legacy support
+  dependsOn: Joi.string().optional(),
+  condition: Joi.string().optional(),
+  value: Joi.any().optional()
 }).unknown(true);
 
+// Schema for creating new templates (all required fields)
 const templateSchema = Joi.object({
   name: Joi.string().required(),
-  description: Joi.string().optional(),
-  category: Joi.string().valid('construction', 'payroll', 'general').required(),
+  description: Joi.string().optional().allow(''),
+  category: Joi.string().valid('construction', 'payroll', 'general', 'Business Setup').required(),
   sections: Joi.array().items(sectionSchema).required(),
-  isActive: Joi.boolean().default(true)
-});
+  isActive: Joi.boolean().default(true),
+  
+  // Section navigation settings
+  sectionNavigation: Joi.object({
+    type: Joi.string().valid('linear', 'conditional', 'free').optional(),
+    allowBackNavigation: Joi.boolean().optional(),
+    showProgressBar: Joi.boolean().optional(),
+    showSectionList: Joi.boolean().optional(),
+    autoAdvance: Joi.boolean().optional()
+  }).optional(),
+  
+  // Form settings
+  settings: Joi.object({
+    allowDrafts: Joi.boolean().optional(),
+    requireLogin: Joi.boolean().optional(),
+    allowAnonymous: Joi.boolean().optional(),
+    redirectUrl: Joi.string().optional(),
+    confirmationMessage: Joi.string().optional(),
+    theme: Joi.string().optional(),
+    primaryColor: Joi.string().optional(),
+    backgroundColor: Joi.string().optional(),
+    fontFamily: Joi.string().optional(),
+    showProgressBar: Joi.boolean().optional(),
+    allowSaveAndContinue: Joi.boolean().optional(),
+    autoSave: Joi.boolean().optional(),
+    autoSaveInterval: Joi.number().optional(),
+    enableCollaboration: Joi.boolean().optional(),
+    enableOfflineMode: Joi.boolean().optional(),
+    enablePayments: Joi.boolean().optional(),
+    enableSignatures: Joi.boolean().optional(),
+    enableGPS: Joi.boolean().optional(),
+    enableFileUploads: Joi.boolean().optional(),
+    enableCaptcha: Joi.boolean().optional()
+  }).optional(),
+  
+  // Legacy fields support (flat structure)
+  fields: Joi.array().items(fieldSchema).optional(),
+  
+  // Version and collaboration
+  version: Joi.number().optional(),
+  collaborators: Joi.array().items(Joi.string()).optional()
+}).unknown(true);
+
+// Schema for updating templates (partial updates allowed)
+const templateUpdateSchema = Joi.object({
+  name: Joi.string().optional(),
+  description: Joi.string().optional().allow(''),
+  category: Joi.string().valid('construction', 'payroll', 'general', 'Business Setup').optional(),
+  sections: Joi.array().items(sectionSchema).optional(),
+  isActive: Joi.boolean().optional(),
+  
+  // Section navigation settings
+  sectionNavigation: Joi.object({
+    type: Joi.string().valid('linear', 'conditional', 'free').optional(),
+    allowBackNavigation: Joi.boolean().optional(),
+    showProgressBar: Joi.boolean().optional(),
+    showSectionList: Joi.boolean().optional(),
+    autoAdvance: Joi.boolean().optional()
+  }).optional(),
+  
+  // Form settings
+  settings: Joi.object({
+    allowDrafts: Joi.boolean().optional(),
+    requireLogin: Joi.boolean().optional(),
+    allowAnonymous: Joi.boolean().optional(),
+    redirectUrl: Joi.string().optional(),
+    confirmationMessage: Joi.string().optional(),
+    theme: Joi.string().optional(),
+    primaryColor: Joi.string().optional(),
+    backgroundColor: Joi.string().optional(),
+    fontFamily: Joi.string().optional(),
+    showProgressBar: Joi.boolean().optional(),
+    allowSaveAndContinue: Joi.boolean().optional(),
+    autoSave: Joi.boolean().optional(),
+    autoSaveInterval: Joi.number().optional(),
+    enableCollaboration: Joi.boolean().optional(),
+    enableOfflineMode: Joi.boolean().optional(),
+    enablePayments: Joi.boolean().optional(),
+    enableSignatures: Joi.boolean().optional(),
+    enableGPS: Joi.boolean().optional(),
+    enableFileUploads: Joi.boolean().optional(),
+    enableCaptcha: Joi.boolean().optional()
+  }).optional(),
+  
+  // Legacy fields support (flat structure)
+  fields: Joi.array().items(fieldSchema).optional(),
+  
+  // Version and collaboration
+  version: Joi.number().optional(),
+  collaborators: Joi.array().items(Joi.string()).optional()
+}).unknown(true);
 
 // Get all templates (public endpoint for users)
 router.get('/', async (req, res) => {
@@ -190,8 +358,11 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 // Admin: Update template
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { error, value } = templateSchema.validate(req.body);
+    console.log('Update template request body:', JSON.stringify(req.body, null, 2));
+    
+    const { error, value } = templateUpdateSchema.validate(req.body);
     if (error) {
+      console.log('Validation error:', error.details[0].message);
       return res.status(400).json({ error: error.details[0].message });
     }
 

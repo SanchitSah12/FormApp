@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { FormSection, FormField } from "@/types/form-builder";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
@@ -23,106 +24,126 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
-import Link from "next/link";
+import { SectionBasedFormBuilder } from "@/components/form-builder/SectionBasedFormBuilder";
+import { FieldPropertiesPanel } from "@/components/form-builder/FieldPropertiesPanel";
+import { ConditionalLogicBuilder } from "@/components/form-builder/ConditionalLogicBuilder";
+import { LiveFormPreview } from "@/components/form-builder/LiveFormPreview";
 
-interface FormField {
-  id: string;
-  type:
-    | "text"
-    | "email"
-    | "phone"
-    | "number"
-    | "textarea"
-    | "select"
-    | "multiselect"
-    | "checkbox"
-    | "radio"
-    | "date"
-    | "file";
-  label: string;
-  placeholder?: string;
-  required: boolean;
-  options?: string[];
-  validation?: {
-    min?: number;
-    max?: number;
-    pattern?: string;
-  };
-  conditionalLogic?: {
-    dependsOn: string;
-    value: string;
-    action: "show" | "hide";
-  };
-}
+// Material-UI Icons
+import {
+  ArrowBack,
+  Save,
+  Settings,
+  Rule,
+  Visibility
+} from '@mui/icons-material';
+import Link from "next/link";
 
 export default function NewTemplatePage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedFieldId, setSelectedFieldId] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'properties' | 'conditional' | 'preview'>('properties');
   const [template, setTemplate] = useState({
     name: "",
     description: "",
     category: "",
-    fields: [] as FormField[],
   });
 
-  const fieldTypes = [
-    { value: "text", label: "Text Input" },
-    { value: "email", label: "Email" },
-    { value: "phone", label: "Phone" },
-    { value: "number", label: "Number" },
-    { value: "textarea", label: "Textarea" },
-    { value: "select", label: "Select Dropdown" },
-    { value: "multiselect", label: "Multi-Select" },
-    { value: "checkbox", label: "Checkbox" },
-    { value: "radio", label: "Radio Button" },
-    { value: "date", label: "Date" },
-    { value: "file", label: "File Upload" },
-  ];
+  const [sections, setSections] = useState<FormSection[]>([
+    {
+      id: 'default_section',
+      title: 'Main Section',
+      description: 'Add your form fields here',
+      order: 0,
+      fields: [],
+      conditionalLogic: [],
+      isDefault: true
+    }
+  ]);
 
   const categories = ["construction", "payroll", "general"];
 
-  const addField = () => {
-    const newField: FormField = {
-      id: `field_${Date.now()}`,
-      type: "text",
-      label: "",
-      required: false,
-    };
-    setTemplate((prev) => ({
-      ...prev,
-      fields: [...prev.fields, newField],
-    }));
+  // Get selected field
+  const selectedField = sections
+    .flatMap(section => section.fields)
+    .find(field => field.id === selectedFieldId);
+
+  // Get all fields for conditional logic
+  const allFields = sections.flatMap(section => section.fields);
+
+  // Handle field selection
+  const handleFieldSelect = (fieldId: string) => {
+    setSelectedFieldId(fieldId);
+    if (fieldId) {
+      setActiveTab('properties');
+    }
   };
 
-  const updateField = (index: number, updates: Partial<FormField>) => {
-    setTemplate((prev) => ({
-      ...prev,
-      fields: prev.fields.map((field, i) =>
-        i === index ? { ...field, ...updates } : field
-      ),
-    }));
+  // Handle field updates
+  const handleFieldUpdate = (fieldId: string, updates: Partial<FormField>) => {
+    setSections(prevSections =>
+      prevSections.map(section => ({
+        ...section,
+        fields: section.fields.map(field =>
+          field.id === fieldId ? { ...field, ...updates } : field
+        )
+      }))
+    );
   };
 
-  const removeField = (index: number) => {
-    setTemplate((prev) => ({
-      ...prev,
-      fields: prev.fields.filter((_, i) => i !== index),
-    }));
+  // Handle field deletion
+  const handleFieldDelete = (fieldId: string) => {
+    setSections(prevSections =>
+      prevSections.map(section => ({
+        ...section,
+        fields: section.fields.filter(field => field.id !== fieldId)
+      }))
+    );
+
+    // Clear selection if deleted field was selected
+    if (selectedFieldId === fieldId) {
+      setSelectedFieldId('');
+    }
+
+    toast.success('Field deleted');
+  };
+
+  // Handle section update
+  const handleSectionUpdate = (sectionId: string, updates: Partial<FormSection>) => {
+    setSections(prevSections =>
+      prevSections.map(section =>
+        section.id === sectionId ? { ...section, ...updates } : section
+      )
+    );
+  };
+
+  // Handle add comment (placeholder for collaboration)
+  const handleAddComment = (fieldId: string, comment: string) => {
+    console.log('Add comment:', fieldId, comment);
+    // This would integrate with the collaboration system
+    toast.success('Comment added');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!template.name || !template.category || template.fields.length === 0) {
+    if (!template.name || !template.category) {
       toast.error("Please fill in all required fields");
       return;
     }
 
+    // Check if any section has fields
+    const totalFields = sections.reduce((total, section) => total + section.fields.length, 0);
+    if (totalFields === 0) {
+      toast.error("Please add at least one field to your form");
+      return;
+    }
+
     // Validate that all fields have labels
-    const invalidFields = template.fields.filter(
+    const invalidFields = sections.flatMap(section => section.fields).filter(
       (field) => !field.label.trim()
     );
     if (invalidFields.length > 0) {
@@ -137,29 +158,20 @@ export default function NewTemplatePage() {
         name: template.name,
         description: template.description,
         category: template.category,
-        sections: [
-          {
-            id: "main-section",
-            title: "Form Fields",
-            description: "Main form fields",
-            fields: template.fields.map((field) => ({
-              ...field,
-              options: field.options
-                ? field.options.map((opt) => ({
-                    value: opt,
-                    label: opt,
-                  }))
-                : undefined,
-            })),
-            order: 1,
-          },
-        ],
+        sections: sections,
+        sectionNavigation: {
+          type: 'conditional',
+          allowBackNavigation: true,
+          showProgressBar: true,
+          showSectionList: true,
+          autoAdvance: false
+        },
         isActive: true,
       };
 
       await api.post("/templates", templateData);
       toast.success("Template created successfully");
-      router.push("/dashboard");
+      router.push("/admin/templates");
     } catch (error) {
       toast.error("Failed to create template");
     } finally {
@@ -171,231 +183,165 @@ export default function NewTemplatePage() {
     <ProtectedRoute requireAdmin>
       <div className="min-h-screen bg-gray-50">
         <Navigation />
-        <main className="container mx-auto px-4 py-8">
-          <div className="max-w-4xl mx-auto space-y-6">
-            {/* Header */}
+
+        {/* Header */}
+        <div className="bg-white border-b">
+          <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <Button variant="outline" size="sm" asChild>
                   <Link href="/dashboard">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to Dashboard
+                    <ArrowBack className="h-4 w-4 mr-2" />
+                    Back to Templates
                   </Link>
                 </Button>
-                <h1 className="text-3xl font-bold">Create New Template</h1>
+                <div>
+                  <h1 className="text-2xl font-bold">Create New Template</h1>
+                  <p className="text-sm text-gray-600">Design your form with sections and fields</p>
+                </div>
               </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Template Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Template Information</CardTitle>
-                  <CardDescription>
-                    Basic information about your form template
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Template Name *</Label>
-                      <Input
-                        id="name"
-                        value={template.name}
-                        onChange={(e) =>
-                          setTemplate((prev) => ({
-                            ...prev,
-                            name: e.target.value,
-                          }))
-                        }
-                        placeholder="e.g., Employee Onboarding Form"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="category">Category *</Label>
-                      <Select
-                        value={template.category}
-                        onValueChange={(value) =>
-                          setTemplate((prev) => ({ ...prev, category: value }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((category) => (
-                            <SelectItem key={category} value={category}>
-                              {category}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={template.description}
-                      onChange={(e) =>
-                        setTemplate((prev) => ({
-                          ...prev,
-                          description: e.target.value,
-                        }))
-                      }
-                      placeholder="Brief description of what this form is for..."
-                      rows={3}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Form Fields */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Form Fields</CardTitle>
-                      <CardDescription>
-                        Define the fields that will appear in your form
-                      </CardDescription>
-                    </div>
-                    <Button type="button" onClick={addField} size="sm">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Field
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {template.fields.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No fields added yet. Click "Add Field" to get started.
-                    </div>
-                  ) : (
-                    template.fields.map((field, index) => (
-                      <div
-                        key={field.id}
-                        className="border rounded-lg p-4 space-y-4"
-                      >
-                        <div className="flex items-center justify-between">
-                          <Badge variant="outline">Field {index + 1}</Badge>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeField(index)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="space-y-2">
-                            <Label>Field Type</Label>
-                            <Select
-                              value={field.type}
-                              onValueChange={(value: any) =>
-                                updateField(index, { type: value })
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {fieldTypes.map((type) => (
-                                  <SelectItem
-                                    key={type.value}
-                                    value={type.value}
-                                  >
-                                    {type.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>Field Label</Label>
-                            <Input
-                              value={field.label}
-                              onChange={(e) =>
-                                updateField(index, { label: e.target.value })
-                              }
-                              placeholder="e.g., Full Name"
-                            />
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>Placeholder</Label>
-                            <Input
-                              value={field.placeholder || ""}
-                              onChange={(e) =>
-                                updateField(index, {
-                                  placeholder: e.target.value,
-                                })
-                              }
-                              placeholder="e.g., Enter your full name"
-                            />
-                          </div>
-                        </div>
-
-                        {(field.type === "select" ||
-                          field.type === "multiselect" ||
-                          field.type === "radio") && (
-                          <div className="space-y-2">
-                            <Label>Options (one per line)</Label>
-                            <Textarea
-                              value={field.options?.join("\n") || ""}
-                              onChange={(e) =>
-                                updateField(index, {
-                                  options: e.target.value
-                                    .split("\n")
-                                    .filter((opt) => opt.trim()),
-                                })
-                              }
-                              placeholder="Option 1&#10;Option 2&#10;Option 3"
-                              rows={3}
-                            />
-                          </div>
-                        )}
-
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id={`required-${field.id}`}
-                            checked={field.required}
-                            onChange={(e) =>
-                              updateField(index, { required: e.target.checked })
-                            }
-                            className="rounded border-gray-300"
-                          />
-                          <Label htmlFor={`required-${field.id}`}>
-                            Required field
-                          </Label>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Submit Button */}
-              <div className="flex justify-end space-x-4">
+              <div className="flex items-center space-x-2">
                 <Button
-                  type="button"
                   variant="outline"
-                  onClick={() => router.push("/dashboard")}
+                  onClick={() => router.push("/admin/templates")}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isLoading}>
+                <Button onClick={handleSubmit} disabled={isLoading}>
+                  <Save className="h-4 w-4 mr-2" />
                   {isLoading ? "Creating..." : "Create Template"}
                 </Button>
               </div>
-            </form>
+            </div>
           </div>
-        </main>
+        </div>
+
+        {/* Template Info Form */}
+        <div className="container mx-auto px-4 py-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Template Information</CardTitle>
+              <CardDescription>
+                Basic information about your form template
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Template Name *</Label>
+                  <Input
+                    id="name"
+                    value={template.name}
+                    onChange={(e) =>
+                      setTemplate((prev) => ({
+                        ...prev,
+                        name: e.target.value,
+                      }))
+                    }
+                    placeholder="e.g., Employee Onboarding Form"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category *</Label>
+                  <Select
+                    value={template.category}
+                    onValueChange={(value) =>
+                      setTemplate((prev) => ({ ...prev, category: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Input
+                    id="description"
+                    value={template.description}
+                    onChange={(e) =>
+                      setTemplate((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
+                    placeholder="Brief description..."
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content - Form Builder */}
+        <div className="flex-1 flex">
+          {/* Form Builder */}
+          <div className="flex-1 p-6">
+            <SectionBasedFormBuilder
+              sections={sections}
+              onSectionsChange={setSections}
+              selectedFieldId={selectedFieldId}
+              onFieldSelect={handleFieldSelect}
+            />
+          </div>
+
+          {/* Side Panel */}
+          <div className="w-80 border-l bg-white">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+              <TabsList className="grid w-full grid-cols-3 m-4">
+                <TabsTrigger value="properties" className="flex items-center gap-1">
+                  <Settings className="h-3 w-3" />
+                  <span className="hidden sm:inline">Properties</span>
+                </TabsTrigger>
+                <TabsTrigger value="conditional" className="flex items-center gap-1">
+                  <Rule className="h-3 w-3" />
+                  <span className="hidden sm:inline">Logic</span>
+                </TabsTrigger>
+                <TabsTrigger value="preview" className="flex items-center gap-1">
+                  <Visibility className="h-3 w-3" />
+                  <span className="hidden sm:inline">Preview</span>
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="properties" className="p-4 pt-0">
+                <FieldPropertiesPanel
+                  field={selectedField || null}
+                  onFieldUpdate={handleFieldUpdate}
+                  onFieldDelete={handleFieldDelete}
+                  onAddComment={handleAddComment}
+                  comments={[]} // This would come from collaboration system
+                />
+              </TabsContent>
+
+              <TabsContent value="conditional" className="p-4 pt-0">
+                <ConditionalLogicBuilder
+                  field={selectedField}
+                  allFields={allFields}
+                  allSections={sections}
+                  onFieldUpdate={handleFieldUpdate}
+                  onSectionUpdate={handleSectionUpdate}
+                />
+              </TabsContent>
+
+              <TabsContent value="preview" className="p-4 pt-0">
+                <LiveFormPreview
+                  sections={sections}
+                  templateName={template.name || 'Untitled Form'}
+                  templateDescription={template.description || 'Form preview'}
+                  selectedFieldId={selectedFieldId}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
       </div>
     </ProtectedRoute>
   );

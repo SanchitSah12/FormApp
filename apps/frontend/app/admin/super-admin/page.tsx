@@ -74,7 +74,7 @@ export default function SuperAdminPage() {
   });
 
   useEffect(() => {
-    if (user?.role !== 'superadmin') {
+    if (user?.role !== 'admin') {
       return;
     }
     fetchData();
@@ -99,7 +99,7 @@ export default function SuperAdminPage() {
       setAdmins(adminsResponse.data.admins);
       setUsers(usersResponse.data.users);
       setTotalPages(usersResponse.data.totalPages);
-      
+
       // Mock system stats for now
       setSystemStats({
         totalUsers: usersResponse.data.total,
@@ -151,7 +151,7 @@ export default function SuperAdminPage() {
     if (!confirm('Are you sure you want to delete this admin?')) {
       return;
     }
-    
+
     try {
       await api.delete(`/auth/admins/${adminId}`);
       toast.success('Admin deleted successfully');
@@ -178,7 +178,7 @@ export default function SuperAdminPage() {
     return new Intl.NumberFormat().format(num);
   };
 
-  if (user?.role !== 'superadmin') {
+  if (user?.role !== 'admin') {
     return (
       <ProtectedRoute>
         <div className="min-h-screen bg-gray-50">
@@ -230,7 +230,7 @@ export default function SuperAdminPage() {
                     </p>
                   </CardContent>
                 </Card>
-                
+
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Total Admins</CardTitle>
@@ -243,7 +243,7 @@ export default function SuperAdminPage() {
                     </p>
                   </CardContent>
                 </Card>
-                
+
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Templates</CardTitle>
@@ -256,7 +256,7 @@ export default function SuperAdminPage() {
                     </p>
                   </CardContent>
                 </Card>
-                
+
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Storage Used</CardTitle>
@@ -320,7 +320,7 @@ export default function SuperAdminPage() {
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                {admin.lastLogin 
+                                {admin.lastLogin
                                   ? new Date(admin.lastLogin).toLocaleDateString()
                                   : 'Never'
                                 }
@@ -415,7 +415,7 @@ export default function SuperAdminPage() {
                                 <TableCell>
                                   <Badge variant={
                                     user.role === 'superadmin' ? 'destructive' :
-                                    user.role === 'admin' ? 'default' : 'secondary'
+                                      user.role === 'admin' ? 'default' : 'secondary'
                                   }>
                                     {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                                   </Badge>
@@ -620,7 +620,7 @@ export default function SuperAdminPage() {
                   <Label>Role</Label>
                   <Badge variant={
                     selectedUser.role === 'superadmin' ? 'destructive' :
-                    selectedUser.role === 'admin' ? 'default' : 'secondary'
+                      selectedUser.role === 'admin' ? 'default' : 'secondary'
                   }>
                     {selectedUser.role.charAt(0).toUpperCase() + selectedUser.role.slice(1)}
                   </Badge>
@@ -638,7 +638,7 @@ export default function SuperAdminPage() {
                 <div>
                   <Label>Last Login</Label>
                   <p className="text-sm">
-                    {selectedUser.lastLogin 
+                    {selectedUser.lastLogin
                       ? new Date(selectedUser.lastLogin).toLocaleDateString()
                       : 'Never'
                     }

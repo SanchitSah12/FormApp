@@ -8,7 +8,18 @@ const fieldSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['text', 'email', 'number', 'select', 'multiselect', 'file', 'textarea', 'checkbox', 'radio', 'date', 'phone', 'signature', 'payment', 'location', 'media', 'qr-scan', 'drawing', 'repeatable-group']
+    enum: [
+      // Basic Fields
+      'text', 'textarea', 'email', 'phone', 'number', 'select', 'radio', 'checkbox', 'checkboxGroup',
+      // Advanced Fields  
+      'date', 'time', 'file', 'rating', 'currency', 'url', 'password',
+      // Layout Fields
+      'divider', 'heading', 'paragraph',
+      // Special Fields
+      'payment', 'signature', 'repeater', 'address', 'image',
+      // Legacy support
+      'multiselect', 'datetime', 'location', 'media', 'qr-scan', 'drawing', 'repeatable-group'
+    ]
   },
   label: {
     type: String,
@@ -17,20 +28,91 @@ const fieldSchema = new mongoose.Schema({
   placeholder: {
     type: String
   },
+  description: {
+    type: String
+  },
   required: {
     type: Boolean,
     default: false
   },
-  options: [{
-    value: String,
-    label: String
-  }],
-  validation: {
+  order: {
+    type: Number,
+    default: 0
+  },
+  section: {
+    type: String
+  },
+  
+  // Properties object for field-specific settings
+  properties: {
+    width: {
+      type: String,
+      enum: ['full', 'half', 'third', 'quarter']
+    },
+    options: [{
+      id: String,
+      label: String,
+      value: String
+    }],
     min: Number,
     max: Number,
+    minLength: Number,
+    maxLength: Number,
+    step: Number,
     pattern: String,
-    message: String
+    multiple: Boolean,
+    accept: String,
+    maxFileSize: Number,
+    maxFiles: Number,
+    level: Number,
+    content: String,
+    amount: Number,
+    currency: String,
+    showLabels: Boolean,
+    allowHalf: Boolean,
+    maxRating: Number
   },
+  
+  // Legacy options support
+  options: [{
+    value: String,
+    label: String,
+    id: String
+  }],
+  
+  // Validation rules
+  validation: [{
+    id: String,
+    type: String,
+    value: mongoose.Schema.Types.Mixed,
+    message: String
+  }],
+  
+  // Conditional logic
+  conditionalLogic: [{
+    id: String,
+    conditions: [{
+      fieldId: String,
+      operator: String,
+      value: mongoose.Schema.Types.Mixed
+    }],
+    action: String,
+    operator: {
+      type: String,
+      enum: ['and', 'or'],
+      default: 'and'
+    }
+  }],
+  
+  // Collaboration data
+  collaborationData: {
+    lockedBy: String,
+    comments: [mongoose.Schema.Types.Mixed],
+    lastModified: Date,
+    lastModifiedBy: String
+  },
+  
+  // Legacy validation support
   helpText: {
     type: String
   },
@@ -38,16 +120,7 @@ const fieldSchema = new mongoose.Schema({
     name: String,
     url: String,
     size: Number
-  }],
-  conditionalLogic: {
-    dependsOn: String, // field id
-    condition: String, // equals, not_equals, contains, etc.
-    value: mongoose.Schema.Types.Mixed
-  },
-  order: {
-    type: Number,
-    default: 0
-  }
+  }]
 });
 
 const sectionSchema = new mongoose.Schema({
@@ -62,16 +135,44 @@ const sectionSchema = new mongoose.Schema({
   description: {
     type: String
   },
-  fields: [fieldSchema],
   order: {
     type: Number,
     default: 0
   },
-  conditionalLogic: {
-    dependsOn: String, // field id from previous sections
-    condition: String,
-    value: mongoose.Schema.Types.Mixed
-  }
+  fields: [fieldSchema],
+  collapsible: {
+    type: Boolean,
+    default: false
+  },
+  collapsed: {
+    type: Boolean,
+    default: false
+  },
+  isDefault: {
+    type: Boolean,
+    default: false
+  },
+  
+  // Conditional logic for sections
+  conditionalLogic: [{
+    id: String,
+    conditions: [{
+      fieldId: String,
+      operator: String,
+      value: mongoose.Schema.Types.Mixed
+    }],
+    action: String,
+    operator: {
+      type: String,
+      enum: ['and', 'or'],
+      default: 'and'
+    }
+  }],
+  
+  // Legacy support
+  dependsOn: String,
+  condition: String,
+  value: mongoose.Schema.Types.Mixed
 });
 
 const templateSchema = new mongoose.Schema({
@@ -97,6 +198,43 @@ const templateSchema = new mongoose.Schema({
     type: Number,
     default: 1
   },
+  
+  // Section navigation settings
+  sectionNavigation: {
+    type: {
+      type: String,
+      enum: ['linear', 'conditional', 'free']
+    },
+    allowBackNavigation: Boolean,
+    showProgressBar: Boolean,
+    showSectionList: Boolean,
+    autoAdvance: Boolean
+  },
+  
+  // Form settings
+  settings: {
+    allowDrafts: Boolean,
+    requireLogin: Boolean,
+    allowAnonymous: Boolean,
+    redirectUrl: String,
+    confirmationMessage: String,
+    theme: String,
+    primaryColor: String,
+    backgroundColor: String,
+    fontFamily: String,
+    showProgressBar: Boolean,
+    allowSaveAndContinue: Boolean,
+    autoSave: Boolean,
+    autoSaveInterval: Number,
+    enableCollaboration: Boolean,
+    enableOfflineMode: Boolean,
+    enablePayments: Boolean,
+    enableSignatures: Boolean,
+    enableGPS: Boolean,
+    enableFileUploads: Boolean,
+    enableCaptcha: Boolean
+  },
+  
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -106,6 +244,10 @@ const templateSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
+  collaborators: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   sharingConfig: {
     isPublic: {
       type: Boolean,

@@ -33,6 +33,7 @@
         "sharp": "^0.32.6",
         "uuid": "^9.0.1",
         "diff": "^5.1.0",
+        "diff-match-patch": "^1.0.5",
         "nodemailer-sendgrid-transport": "^0.2.0",
         "qrcode": "^1.5.3",
         "ws": "^8.14.2"
