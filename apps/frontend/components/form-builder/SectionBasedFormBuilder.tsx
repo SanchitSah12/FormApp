@@ -209,9 +209,9 @@ export const SectionBasedFormBuilder: React.FC<SectionBasedFormBuilderProps> = (
     );
 
     return (
-        <div className="grid grid-cols-4 gap-4 h-[800px]">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-[600px] lg:h-[800px]">
             {/* Section Navigation */}
-            <Card className="col-span-1">
+            <Card className="lg:col-span-1">
                 <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-sm flex items-center gap-2">
@@ -228,11 +228,11 @@ export const SectionBasedFormBuilder: React.FC<SectionBasedFormBuilderProps> = (
                         </Button>
                     </div>
                     <CardDescription className="text-xs">
-                        {sections.length} sections
+                        {sections.length} section{sections.length !== 1 ? 's' : ''}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <ScrollArea className="h-[650px]">
+                    <ScrollArea className="h-[300px] lg:h-[650px]">
                         <div className="space-y-2">
                             {sections.map((section, index) => (
                                 <div
@@ -335,23 +335,25 @@ export const SectionBasedFormBuilder: React.FC<SectionBasedFormBuilderProps> = (
             </Card>
 
             {/* Main Content Area */}
-            <div className="col-span-3">
+            <div className="lg:col-span-3">
                 <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'builder' | 'conditional')}>
-                    <TabsList>
+                    <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="builder" className="flex items-center gap-2">
                             <Settings className="h-4 w-4" />
-                            Form Builder
+                            <span className="hidden sm:inline">Form Builder</span>
+                            <span className="sm:hidden">Builder</span>
                         </TabsTrigger>
                         <TabsTrigger value="conditional" className="flex items-center gap-2">
                             <Rule className="h-4 w-4" />
-                            Conditional Logic
+                            <span className="hidden sm:inline">Conditional Logic</span>
+                            <span className="sm:hidden">Logic</span>
                         </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="builder" className="mt-4">
-                        <div className="grid grid-cols-3 gap-4 h-[720px]">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 min-h-[500px] xl:h-[720px]">
                             {/* Field Types */}
-                            <Card>
+                            <Card className="md:order-1">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="text-sm">Add Fields</CardTitle>
                                     <CardDescription className="text-xs">
@@ -359,7 +361,7 @@ export const SectionBasedFormBuilder: React.FC<SectionBasedFormBuilderProps> = (
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <ScrollArea className="h-[600px]">
+                                    <ScrollArea className="h-[400px] xl:h-[600px]">
                                         <div className="space-y-3">
                                             {Object.entries(
                                                 FIELD_TYPES.reduce((acc, fieldType) => {
@@ -399,7 +401,7 @@ export const SectionBasedFormBuilder: React.FC<SectionBasedFormBuilderProps> = (
                             </Card>
 
                             {/* Section Preview */}
-                            <Card>
+                            <Card className="md:order-2 md:col-span-2 xl:col-span-1">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="text-sm">
                                         {currentSection?.title || 'No Section Selected'}
@@ -409,7 +411,7 @@ export const SectionBasedFormBuilder: React.FC<SectionBasedFormBuilderProps> = (
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <ScrollArea className="h-[600px]">
+                                    <ScrollArea className="h-[400px] xl:h-[600px]">
                                         {currentSection?.fields.length === 0 ? (
                                             <div className="text-center py-8 text-gray-400">
                                                 <Add className="h-8 w-8 mx-auto mb-2" />
@@ -494,7 +496,7 @@ export const SectionBasedFormBuilder: React.FC<SectionBasedFormBuilderProps> = (
                             </Card>
 
                             {/* Section Properties */}
-                            <Card>
+                            <Card className="md:order-3 md:col-span-2 xl:col-span-1">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="text-sm">Section Properties</CardTitle>
                                     <CardDescription className="text-xs">
@@ -502,7 +504,7 @@ export const SectionBasedFormBuilder: React.FC<SectionBasedFormBuilderProps> = (
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <ScrollArea className="h-[600px]">
+                                    <ScrollArea className="h-[400px] xl:h-[600px]">
                                         {currentSection ? (
                                             <div className="space-y-4">
                                                 <div className="space-y-2">

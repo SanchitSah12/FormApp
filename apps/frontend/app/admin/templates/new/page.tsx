@@ -171,7 +171,7 @@ export default function NewTemplatePage() {
 
       await api.post("/templates", templateData);
       toast.success("Template created successfully");
-      router.push("/admin/templates");
+      router.push("/dashboard");
     } catch (error) {
       toast.error("Failed to create template");
     } finally {
@@ -203,7 +203,7 @@ export default function NewTemplatePage() {
               <div className="flex items-center space-x-2">
                 <Button
                   variant="outline"
-                  onClick={() => router.push("/admin/templates")}
+                  onClick={() => router.push("/dashboard")}
                 >
                   Cancel
                 </Button>

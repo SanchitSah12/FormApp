@@ -89,7 +89,7 @@ export const CollaborativeTemplateEditor = ({
             setTemplate(response.data.template);
         } catch (error) {
             toast.error('Failed to load template');
-            router.push('/admin/templates');
+            router.push('/dashboard');
         } finally {
             setIsLoading(false);
         }

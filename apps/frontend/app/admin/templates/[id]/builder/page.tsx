@@ -234,7 +234,7 @@ export default function FormBuilderPage() {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => router.push('/admin/templates')}
+                                onClick={() => router.push('/dashboard')}
                                 className="flex items-center gap-2"
                             >
                                 <ArrowBack className="h-4 w-4" />
