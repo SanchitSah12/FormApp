@@ -23,8 +23,8 @@ WORKDIR /app
 # Copy package files first for better caching
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install --only=production
+# Install dependencies (no cache for better reliability)
+RUN npm install --only=production --no-cache
 
 # Copy source code
 COPY . .
